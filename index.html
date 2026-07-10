@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Synchronous | Realtime Collaboration Engine</title>
+    <title>Synchronous | Realtime Collaboration Platform</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
+    <!-- QRCode Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <style>
         :root {
             --primary: #2563eb;
@@ -19,544 +22,425 @@
             --error: #ef4444;
             --success: #10b981;
             --warning: #f59e0b;
-            --sidebar-width: 320px;
-            --border: #e2e8f0;
+            --sidebar-width: 300px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: var(--bg); color: var(--text-main); line-height: 1.5; overflow-x: hidden; }
+        body { background-color: var(--bg); color: var(--text-main); line-height: 1.6; overflow-x: hidden; transition: margin-left 0.3s ease; }
 
+        /* Utility Classes */
         .hidden { display: none !important; }
-        .btn { cursor: pointer; padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; }
+        .btn { cursor: pointer; padding: 12px 24px; border-radius: 8px; border: none; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-primary { background: var(--primary); color: white; width: 100%; }
-        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
-        .btn-secondary { background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); }
-        .btn-secondary:hover { background: #e2e8f0; }
-        .btn-danger { background: #fee2e2; color: #b91c1c; }
-        .btn-danger:hover { background: #fca5a5; }
-        .btn:active { transform: scale(0.97); }
-        .btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; }
 
-        /* Structural Layout */
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        @media (max-width: 768px) {
+            :root { --sidebar-width: 250px; }
+            nav { padding: 1rem 3%; }
+            .dashboard { padding: 0 15px; margin: 20px auto; }
+            .auth-container { margin: 40px 15px; padding: 25px; }
+            h1 { font-size: 1.5rem; }
+            .workspace-grid { grid-template-columns: 1fr !important; }
+        }
+
+        /* Navigation */
+        nav { background: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; cursor: pointer; }
+
+        /* Sidebar Menu */
+        .sidebar { position: fixed; left: calc(-1 * var(--sidebar-width)); top: 0; width: var(--sidebar-width); height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.1); z-index: 1001; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 30px 20px; overflow-y: auto; }
+        .sidebar.active { left: 0; }
+        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); opacity: 0; visibility: hidden; transition: 0.3s; z-index: 1000; backdrop-filter: blur(2px); }
+        .sidebar-overlay.active { opacity: 1; visibility: visible; }
         
-        /* Left Navigation Control panel */
-        .app-sidebar { width: var(--sidebar-width); background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; flex-shrink: 0; z-index: 10; }
-        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-        .logo { font-size: 1.3rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
-        .sidebar-scroll { flex: 1; overflow-y: auto; padding: 20px; }
         .sidebar-section { margin-bottom: 25px; }
-        .sidebar-section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-section h3 { font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px; }
         
-        /* Main Interactive Frame */
-        .main-workspace { flex: 1; display: flex; flex-direction: column; height: 100%; background: var(--bg); overflow: hidden; position: relative; }
-        .workspace-header { background: white; padding: 15px 25px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; z-index: 5; }
-        .workspace-body { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 30px; }
+        .list-item { padding: 10px; border-radius: 8px; background: #f1f5f9; margin-bottom: 8px; border: 1px solid #e2e8f0; cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 0.9rem; }
+        .list-item:hover { background: #e2e8f0; }
+        .list-item img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
 
-        /* Auth Screen */
-        .auth-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; width: 100vw; background: var(--bg); padding: 20px; }
-        .auth-container { max-width: 420px; width: 100%; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); }
-        .input-group { margin-bottom: 18px; position: relative; }
-        .input-group label { display: block; margin-bottom: 6px; font-weight: 500; color: var(--text-main); font-size: 0.85rem; }
-        input, textarea, select { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; outline: none; transition: all 0.2s; background: #fff; font-size: 0.9rem; color: var(--text-main); }
-        input:focus, textarea:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-        .or-separator { display: flex; align-items: center; text-align: center; color: var(--text-muted); font-size: 0.8rem; margin: 20px 0; }
-        .or-separator::before, .or-separator::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
-        .or-separator:not(:empty)::before { margin-right: .5em; }
-        .or-separator:not(:empty)::after { margin-left: .5em; }
+        /* Auth Container */
+        .auth-container { max-width: 400px; margin: 60px auto; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-muted); }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; transition: 0.2s; background: #fff; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
 
-        /* Lists and Cards */
-        .list-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.2s; margin-bottom: 4px; font-size: 0.9rem; font-weight: 500; color: #475569; position: relative; }
-        .list-item:hover { background: #f1f5f9; color: var(--text-main); }
-        .list-item.active { background: rgba(37, 99, 235, 0.08); color: var(--primary); font-weight: 600; }
-        .list-item img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: #e2e8f0; }
+        /* Divider */
+        .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: var(--text-muted); font-size: 0.85rem; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
+        .divider:not(:empty)::before { margin-right: .5em; }
+        .divider:not(:empty)::after { margin-left: .5em; }
 
-        /* Whiteboard Component */
-        .whiteboard-container { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.01); display: flex; flex-direction: column; }
-        .component-header { padding: 12px 20px; border-bottom: 1px solid var(--border); background: #fafafa; display: flex; justify-content: space-between; align-items: center; }
-        .component-title { font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
-        .canvas-area { position: relative; width: 100%; height: 320px; background: #f8fafc; cursor: crosshair; }
-        canvas { position: absolute; top:0; left:0; width:100%; height:100%; }
-        .canvas-controls { padding: 8px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; background: white; }
-
-        /* Collaborative Text Boxes */
-        .textboxes-container { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .textbox-wrapper { border: 1px solid var(--border); border-radius: 8px; padding: 15px; position: relative; background: #fff; transition: box-shadow 0.2s; }
-        .textbox-wrapper.important { border-left: 5px solid var(--warning); background: #fffbeb; }
-        .textbox-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.8rem; color: var(--text-muted); }
-        .textbox-author-badge { background: #e2e8f0; color: var(--text-main); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-        .textbox-actions { display: flex; gap: 8px; }
-        .textbox-badge-important { background: var(--warning); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        /* Dashboard & Custom App Grid */
+        .dashboard { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
+        .workspace-grid { display: grid; grid-template-columns: 1fr 380px; gap: 25px; align-items: start; }
+        .main-col { display: flex; flex-direction: column; gap: 25px; }
         
-        /* Realtime Cursors / Presence Visuals */
-        .cursor-indicator { position: absolute; pointer-events: none; padding: 2px 8px; background: var(--primary); color: white; font-size: 0.7rem; border-radius: 4px; font-weight: bold; white-space: nowrap; z-index: 100; transform: translate(5px, 15px); transition: top 0.1s linear, left 0.1s linear; }
-
-        /* Chat Layout */
-        .chat-container { background: white; border-radius: 12px; border: 1px solid var(--border); height: 500px; display: flex; flex-direction: column; overflow: hidden; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #ffffff; }
-        .chat-message-row { display: flex; gap: 12px; align-items: flex-start; }
-        .chat-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #cbd5e1; flex-shrink: 0; }
-        .chat-content { flex: 1; }
-        .chat-msg-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
-        .chat-username { font-weight: 700; font-size: 0.9rem; color: var(--text-main); }
-        .chat-timestamp { font-size: 0.75rem; color: var(--text-muted); }
-        .chat-bubble { background: #f1f5f9; padding: 10px 14px; border-radius: 0 12px 12px 12px; font-size: 0.9rem; color: #334155; display: inline-block; max-width: 85%; word-break: break-word; }
-        .mention-highlight { background: rgba(37, 99, 235, 0.15); color: var(--primary); font-weight: 600; padding: 1px 4px; border-radius: 4px; }
+        .panel-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
         
-        /* Chat Input Deck & Slow Mode */
-        .chat-input-area { padding: 15px; border-top: 1px solid var(--border); background: white; position: relative; }
-        .typing-indicator { font-size: 0.8rem; color: var(--text-muted); height: 20px; padding-left: 5px; font-style: italic; }
-        .chat-controls { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-        .mention-dropdown { position: absolute; bottom: 100%; left: 15px; background: white; border: 1px solid var(--border); border-radius: 8px; max-height: 160px; overflow-y: auto; width: 220px; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 50; }
-        .mention-item { padding: 8px 12px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+        /* Whiteboard */
+        .canvas-container { position: relative; width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; overflow: hidden; }
+        canvas { display: block; background: #fafafa; cursor: crosshair; width: 100%; height: 350px; }
+        
+        /* Textbox Blocks */
+        .textbox-item { border-left: 5px solid var(--primary); padding: 15px; background: #f8fafc; border-radius: 4px 8px 8px 4px; position: relative; margin-bottom: 15px; }
+        .textbox-item.important { border-left-color: var(--warning); background: #fffbp; background-color: #fffbeb; }
+        .textbox-item .meta { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .textbox-item textarea { font-size: 0.95rem; resize: none; background: transparent; border: none; padding: 0; }
+        .textbox-item textarea:focus { box-shadow: none; }
+        .textbox-actions { display: flex; gap: 10px; margin-top: 10px; justify-content: flex-end; }
+        .btn-small { padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; background: #e2e8f0; color: var(--text-main); }
+        .btn-small.active-imp { background: var(--warning); color: white; }
+
+        /* Chat System */
+        .chat-container { display: flex; flex-direction: column; height: 500px; }
+        .chat-messages { flex-1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; height: 340px; }
+        .chat-msg { display: flex; gap: 10px; align-items: start; animation: fadeIn 0.2s ease-out; }
+        .chat-msg img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+        .chat-bubble { background: white; padding: 10px 14px; border-radius: 0 12px 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; max-width: 85%; }
+        .chat-bubble .sender-name { font-weight: 700; font-size: 0.8rem; margin-bottom: 3px; color: var(--primary); }
+        .chat-input-area { margin-top: 10px; position: relative; }
+        
+        /* Mention Dropdown */
+        .mention-dropdown { position: absolute; bottom: 100%; left: 0; width: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); max-height: 150px; overflow-y: auto; z-index: 10; }
+        .mention-item { padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         .mention-item:hover { background: #f1f5f9; }
-        .slow-mode-banner { background: #fff7ed; color: #c2410c; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; text-align: center; border: 1px solid #ffedd5; margin-bottom: 8px; }
+        .mention-item img { width: 24px; height: 24px; border-radius: 50%; }
 
-        /* Media Attachments */
-        .media-attach { margin-top: 8px; max-width: 260px; border-radius: 8px; display: block; border: 1px solid var(--border); overflow: hidden; }
-        .media-attach img { width: 100%; height: auto; display: block; }
-        .media-attach video { width: 100%; display: block; }
-        .audio-player { margin-top: 8px; display: block; width: 100%; max-width: 280px; }
-        .file-link { display: inline-flex; align-items: center; gap: 8px; background: white; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; color: var(--primary); text-decoration: none; font-weight: 500; font-size: 0.85rem; }
+        /* Badges & Modals */
+        .status-badge { font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; text-transform: uppercase; }
+        .status-owner { background: #fee2e2; color: #b91c1c; }
+        .status-admin { background: #e0f2fe; color: #0369a1; }
+        .status-member { background: #f1f5f9; color: #475569; }
 
-        /* Poll System */
-        .poll-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-top: 8px; width: 100%; max-width: 400px; }
-        .poll-question { font-weight: 600; margin-bottom: 10px; font-size: 0.9rem; }
-        .poll-option-row { margin-bottom: 8px; }
-        .poll-opt-btn { width: 100%; text-align: left; background: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-        .poll-opt-btn:hover { background: #f1f5f9; }
-        .poll-progress { position: absolute; top:0; left:0; bottom:0; background: rgba(37, 99, 235, 0.08); pointer-events: none; transition: width 0.3s ease; }
-        
-        /* Modals and Overlay Views */
-        .modal-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
-        .modal-box { background: white; border-radius: 16px; width: 100%; max-width: 460px; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border); animation: modalBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        
-        /* Toast Container */
-        #toast-container { position: fixed; bottom: 25px; right: 25px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: white; padding: 14px 20px; border-radius: 10px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-left: 4px solid var(--primary); font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 280px; max-width: 360px; animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-        .toast.success { border-left-color: var(--success); }
-        .toast.error { border-left-color: var(--error); }
-        .toast.warning { border-left-color: var(--warning); }
+        #toast-container { position: fixed; bottom: 30px; right: 30px; z-index: 9999; }
+        .toast { background: white; color: var(--text-main); padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 10px; display: flex; align-items: center; gap: 12px; min-width: 300px; border-left: 4px solid var(--primary); animation: slideInRight 0.3s ease-out forwards; }
+        .toast.error { border-color: var(--error); }
+        .toast.success { border-color: var(--success); }
 
-        /* Member List styling */
-        .member-container { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
-        .search-wrapper { margin-bottom: 12px; }
-        .member-grid { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
-        .member-card { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 6px; }
-        .member-info { display: flex; align-items: center; gap: 10px; }
-        .member-info img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-        .role-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
-        .role-creator { background: #fee2e2; color: #991b1b; }
-        .role-admin { background: #e0f2fe; color: #0369a1; }
-        .role-member { background: #f1f5f9; color: #475569; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(4px); }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; max-width: 450px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
 
-        @keyframes modalBounce {
-            0% { transform: scale(0.95); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes slideInRight {
-            0% { transform: translateX(110%); opacity: 0; }
-            100% { transform: translateX(0); opacity: 1; }
-        }
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 <body>
 
-    <!-- Notification Toast Deck -->
     <div id="toast-container"></div>
 
-    <!-- MAIN APP AUTH SCREEN ENTRIES -->
-    <div id="auth-screen" class="auth-wrapper">
-        <div class="auth-container">
-            <h2 id="auth-title" style="margin-bottom: 8px; text-align: center; font-weight: 800; font-size: 1.6rem; letter-spacing: -0.5px;">Welcome to Synchronous</h2>
-            <p id="auth-subtitle" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px;">Collaborate instantly in realtime</p>
-            
-            <div class="input-group">
-                <label>Email Address</label>
-                <input type="email" id="auth-email" placeholder="you@domain.com">
-            </div>
-            <div class="input-group">
-                <label>Password</label>
-                <input type="password" id="auth-password" placeholder="••••••••">
-            </div>
-            
-            <button id="btn-email-auth" class="btn btn-primary" onclick="handleEmailAuth()" style="margin-top: 5px;">Sign In</button>
-            
-            <div id="forgot-password-container" style="text-align: center; margin-top: 12px;">
-                <span onclick="triggerForgotPassword()" style="color: var(--text-muted); font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Forgot Password?</span>
-            </div>
-
-            <div class="or-separator">or</div>
-
-            <button class="btn btn-secondary" onclick="handleGoogleAuth()" style="width: 100%;">
-                <i class="fab fa-google" style="color: #ea4335;"></i> Continue with Google
-            </button>
-
-            <p style="text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 0.85rem;">
-                <span id="auth-toggle-msg">New to the app?</span>
-                <span id="auth-toggle-action" onclick="toggleAuthMode()" style="color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: underline;">Sign up now.</span>
-            </p>
-        </div>
-    </div>
-
-    <!-- MANDATORY ONBOARDING DETAILS MODAL DIALOG -->
-    <div id="modal-onboarding" class="modal-mask hidden">
-        <div class="modal-box">
-            <h3 style="margin-bottom: 6px; font-weight: 800; font-size: 1.3rem;"><i class="fas fa-user-astronaut" style="color: var(--primary);"></i> Complete Profile</h3>
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 20px;">Please configure your compulsory public profile properties before continuing.</p>
-            
-            <div class="input-group">
-                <label>Display Name *</label>
-                <input type="text" id="onboard-name" placeholder="Alex Rivers">
-            </div>
-            <div class="input-group">
-                <label>Profile Picture</label>
-                <input type="file" id="onboard-file" accept="image/*" style="padding: 5px;">
-                <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Leaves standard image placeholder if omitted</p>
-            </div>
-            <div class="input-group">
-                <label>Description / Bio</label>
-                <textarea id="onboard-desc" rows="3" placeholder="Product designer working on real-time engines..."></textarea>
-            </div>
-            
-            <button id="btn-save-onboarding" class="btn btn-primary" onclick="saveOnboardingProfile()">Save Profile Settings</button>
-        </div>
-    </div>
-
-    <!-- CORE COLLABORATION APP CONSOLE STRUCTURE -->
-    <div id="app-console" class="app-container hidden">
+    <!-- Sidebar Backdrop & Layout Elements -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <h2 style="margin-bottom: 15px;"><i class="fa-solid fa-square-poll-horizontal text-primary"></i> Navigation</h2>
+        <hr style="opacity: 0.1; margin-bottom: 20px;">
         
-        <!-- SIDEBAR CONTAINER -->
-        <aside class="app-sidebar">
-            <div class="sidebar-header">
-                <div class="logo"><i class="fas fa-sync-alt"></i> Synchronous</div>
-                <div id="current-user-avatar-zone" onclick="openProfileDrawer()" title="View Profile" style="cursor: pointer; position: relative;">
-                    <img id="bar-user-avatar" src="" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);">
-                </div>
-            </div>
+        <div class="sidebar-section">
+            <button class="btn btn-primary" style="background:#1e293b; margin-bottom:10px;" onclick="showProfileModal()"><i class="fa-solid fa-user"></i> My Profile</button>
+            <button class="btn btn-primary" style="background:#475569; margin-bottom:10px;" onclick="showCreateWorkspaceModal()"><i class="fa-solid fa-plus"></i> Create Workspace</button>
+            <button class="btn btn-primary" style="background:#64748b; margin-bottom:10px;" onclick="showJoinWorkspaceModal()"><i class="fa-solid fa-right-to-bracket"></i> Join Workspace</button>
+            <button class="btn btn-primary" style="background:#0284c7; margin-bottom:10px;" onclick="showAddFriendModal()"><i class="fa-solid fa-user-plus"></i> Add Friends</button>
+            <button class="btn btn-primary" style="background:#0f766e;" onclick="showFriendRequestsModal()"><i class="fa-solid fa-bell"></i> Friend Requests</button>
+        </div>
 
-            <div class="sidebar-scroll">
-                
-                <!-- Workspace Management Control Triggers -->
-                <div class="sidebar-section">
-                    <button class="btn btn-primary" onclick="openCreateWorkspaceModal()" style="margin-bottom: 8px;">
-                        <i class="fas fa-plus-circle"></i> Create Workspace
-                    </button>
-                    <button class="btn btn-secondary" onclick="openJoinWorkspaceModal()" style="width: 100%;">
-                        <i class="fas fa-door-open"></i> Join Workspace
-                    </button>
-                </div>
+        <div class="sidebar-section">
+            <h3>My Workspaces</h3>
+            <div id="sidebar-workspaces-list"></div>
+        </div>
 
-                <!-- Live Tracked Registered Workspaces List -->
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">My Workspaces</div>
-                    <div id="ui-workspaces-list">
-                        <!-- Dynamic Workspaces rows output -->
-                    </div>
-                </div>
+        <div class="sidebar-section">
+            <h3>Friends List</h3>
+            <div id="sidebar-friends-list"></div>
+        </div>
+    </div>
 
-                <!-- Buddy Friends Control Lists -->
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">
-                        <span>Friends Deck</span>
-                        <span onclick="openAddFriendModal()" style="color: var(--primary); cursor: pointer; font-size: 0.8rem;"><i class="fas fa-user-plus"></i> Add</span>
-                    </div>
-                    <div id="ui-friends-list">
-                        <!-- Dynamic Active buddies -->
-                    </div>
-                </div>
+    <!-- Navigation Header -->
+    <nav>
+        <div class="logo" onclick="toggleSidebar()"><i class="fas fa-bars" style="margin-right: 15px; color: var(--text-muted); font-size: 1.2rem;"></i><i class="fa-solid fa-sync"></i> Synchronous</div>
+        <div id="nav-user" class="hidden">
+            <span id="user-display-name" style="margin-right: 15px; font-weight: 600;"></span>
+            <button class="btn" style="background: #fee2e2; color: #b91c1c; padding: 6px 16px;" onclick="logout()">Logout</button>
+        </div>
+    </nav>
 
-                <!-- Workspace Invitation Pending Section Requests -->
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">Friend Invitations</div>
-                    <div id="ui-friend-requests-list">
-                        <!-- Dynamic Request blocks -->
-                    </div>
-                </div>
+    <!-- Authentication Views -->
+    <div id="auth-section" class="auth-container fade-in">
+        <h2 id="auth-title" style="margin-bottom: 25px; text-align: center;">Sign In</h2>
+        
+        <div class="input-group">
+            <label>Email Address</label>
+            <input type="email" id="email" placeholder="you@example.com">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••">
+        </div>
+        
+        <button id="auth-btn" class="btn btn-primary" onclick="handleEmailAuth()">Continue with Email</button>
+        
+        <div style="text-align: center; margin-top: 12px;">
+            <a href="#" onclick="handleForgotPassword()" id="forgot-link" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">Forgot Password?</a>
+        </div>
 
-                <!-- Footer Session Core Exit Control -->
-                <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid var(--border);">
-                    <button class="btn btn-danger" onclick="executeSignOut()" style="width: 100%; font-size: 0.85rem;">
-                        <i class="fas fa-sign-out-alt"></i> Terminate Session
-                    </button>
-                </div>
+        <div class="divider">or</div>
+        <button class="btn btn-primary" style="background:#ffffff; color:#1e293b; border:1px solid #cbd5e1;" onclick="handleGoogleAuth()">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google__G__Logo.svg" style="width:18px; height:18px;"> Continue with Google
+        </button>
 
-            </div>
-        </aside>
+        <p style="text-align: center; margin-top: 25px; color: var(--text-muted); font-size:0.9rem;">
+            <span id="auth-toggle-text">New to the app?</span> 
+            <a href="#" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: var(--primary); text-decoration: none; font-weight: 600;">Sign up now.</a>
+        </p>
+    </div>
 
-        <!-- MAIN INTERACTIVE CANVAS FRAME CONTAINER -->
-        <main class="main-workspace">
-            
-            <!-- BLANK DOCKER FRAME DEFAULT PLACEHOLDER -->
-            <div id="workspace-blank-state" class="workspace-body" style="justify-content: center; align-items: center; text-align: center; height: 100%;">
-                <i class="fas fa-project-diagram" style="font-size: 4rem; color: #cbd5e1; margin-bottom: 15px;"></i>
-                <h2>No Active Workspace Selected</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 340px; margin-top: 5px;">Select an existing hub from your left panel or issue a fresh Workspace deployment to start sync-drawing.</p>
-            </div>
+    <!-- Email Verification Intermediary Screen -->
+    <div id="verify-section" class="auth-container hidden style="text-align: center;">
+        <i class="fas fa-envelope-open-text" style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
+        <h2>Verify your email</h2>
+        <p style="color: var(--text-muted); margin: 20px 0;">We've sent a link to your email setup. Please verify it and refresh the page to access your dashboards.</p>
+        <button class="btn btn-primary" onclick="window.location.reload()">I've Verified</button>
+    </div>
 
-            <!-- DIRECT INDIVIDUAL PRIVATE MESSENGER CONSOLE PANEL -->
-            <div id="direct-chat-state" class="workspace-body hidden" style="height: 100%; display: flex; flex-direction: column;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; background: white; margin: -25px -25px 0 -25px; padding: 20px 25px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <img id="dm-header-avatar" src="" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                        <div>
-                            <h3 id="dm-header-title">Buddy Username</h3>
-                            <p id="dm-header-desc" style="font-size: 0.75rem; color: var(--text-muted);">Private Messenger Session</p>
+    <!-- Core App Dashboard View -->
+    <div id="app-dashboard" class="dashboard hidden">
+        <div id="no-workspace-view" class="panel-card text-center fade-in" style="text-align:center; padding:60px 20px;">
+            <i class="fa-solid fa-people-group" style="font-size:4rem; color:var(--text-muted); margin-bottom:20px;"></i>
+            <h2>Welcome to Synchronous Workspace Center</h2>
+            <p style="color:var(--text-muted); margin:15px auto; max-width:500px;">Open the left menu sidebar to update your Profile details, connect with friends via unique Friend Codes, create collaborative workspaces, or insert a code to instantly join existing spaces.</p>
+            <button class="btn btn-primary" style="width:auto;" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i> Open Navigation Menu</button>
+        </div>
+
+        <!-- Collaborative Workspace Main Area -->
+        <div id="active-workspace-view" class="workspace-grid hidden fade-in">
+            <!-- Left Column: Shared Whiteboard and Textbox Blocks -->
+            <div class="main-col">
+                <div class="panel-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h2 id="ws-title-display">Workspace Board</h2>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn btn-primary" style="width:auto; padding:6px 12px; background:#475569;" onclick="generateInviteLink()"><i class="fa-solid fa-link"></i> Invite Link</button>
+                            <button class="btn btn-primary" style="width:auto; padding:6px 12px; background:#16a34a;" onclick="showQRModal()"><i class="fa-solid fa-qrcode"></i> Invite QR</button>
+                            <button id="ws-delete-btn" class="btn btn-primary hidden" style="width:auto; padding:6px 12px; background:var(--error);" onclick="deleteCurrentWorkspace()"><i class="fa-solid fa-trash"></i> Destroy Space</button>
+                            <button class="btn btn-primary" style="width:auto; padding:6px 12px; background:#b91c1c;" onclick="leaveCurrentWorkspace()"><i class="fa-solid fa-right-from-bracket"></i> Leave</button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="triggerBlockAction(true)" id="btn-dm-block" style="padding: 6px 12px; font-size: 0.8rem; color: var(--error);"><i class="fas fa-ban"></i> Block</button>
-                        <button class="btn btn-secondary hidden" onclick="triggerBlockAction(false)" id="btn-dm-unblock" style="padding: 6px 12px; font-size: 0.8rem; color: var(--success);"><i class="fas fa-check"></i> Unblock</button>
-                        <button class="btn btn-secondary" onclick="triggerUnfriendAction()" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fas fa-user-minus"></i> Unfriend</button>
-                        <button class="btn btn-danger" onclick="triggerReportAction()" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fas fa-flag"></i> Report</button>
+
+                    <!-- Shared Realtime Canvas Whiteboard Layout -->
+                    <div class="canvas-container">
+                        <canvas id="whiteboard-canvas"></canvas>
+                    </div>
+                    <div style="margin-top:10px; display:flex; gap:15px; align-items:center;">
+                        <span style="font-size:0.85rem; color:var(--text-muted);"><i class="fa-solid fa-signature"></i> Live Painter Signature Node Tracker Active</span>
+                        <button class="btn-small" style="background:#cbd5e1;" onclick="clearLocalCanvas()">Clear Canvas UI</button>
                     </div>
                 </div>
 
-                <!-- DM Messages Roll -->
-                <div id="dm-messages-container" class="chat-messages" style="flex: 1; border: 1px solid var(--border); border-radius: 12px; margin-top: 15px;"></div>
-
-                <!-- DM Messaging Box Input Area -->
-                <div style="margin-top: 10px; display: flex; gap: 10px;">
-                    <input type="text" id="dm-chat-input" placeholder="Type private response..." onkeypress="handleDMChatKey(event)">
-                    <button class="btn btn-primary" onclick="sendDirectChatMessage()" style="width: auto;"><i class="fas fa-paper-plane"></i></button>
+                <!-- Shared Textboxes Workspace Framework -->
+                <div class="panel-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h3>Shared Dynamic Text Area Blocks</h3>
+                        <button class="btn btn-primary" style="width:auto; padding:6px 12px;" onclick="addNewSharedTextbox()"><i class="fa-solid fa-plus"></i> Add Textbox</button>
+                    </div>
+                    <div id="shared-textboxes-container"></div>
                 </div>
             </div>
 
-            <!-- ACTIVE INTERACTIVE SHARED SYNCED MOUNT LAYER -->
-            <div id="workspace-active-state" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
-                
-                <!-- Active Hub Identity Ribbon Banner -->
-                <header class="workspace-header" style="margin: 0; border-bottom: 1px solid var(--border);">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <img id="active-ws-avatar" src="" style="width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: #e2e8f0;">
-                        <div>
-                            <h2 id="active-ws-title">Design Engine Sprint</h2>
-                            <p style="font-size: 0.75rem; color: var(--text-muted);">Real-time Synced Collaborative Framework</p>
-                        </div>
-                    </div>
-                    <div>
-                        <button class="btn btn-secondary" onclick="copyWorkspaceInviteLink()" style="font-size: 0.8rem; padding: 6px 12px;"><i class="fas fa-link"></i> Link Invite</button>
-                        <button class="btn btn-secondary" onclick="revealWorkspaceQRCode()" style="font-size: 0.8rem; padding: 6px 12px;"><i class="fas fa-qrcode"></i> QR Invite</button>
-                        <button class="btn btn-danger hidden" id="btn-delete-workspace" onclick="destroyCurrentWorkspace()" style="font-size: 0.8rem; padding: 6px 12px;"><i class="fas fa-trash-alt"></i> Delete Hub</button>
-                        <button class="btn btn-secondary" id="btn-leave-workspace" onclick="leaveCurrentWorkspace()" style="font-size: 0.8rem; padding: 6px 12px; color: var(--error);"><i class="fas fa-sign-out-alt"></i> Leave</button>
-                    </div>
-                </header>
-
-                <div class="workspace-body">
+            <!-- Right Column: Member Lists and Workspace Chat Engine -->
+            <div class="main-col">
+                <!-- Member Directory Panel -->
+                <div class="panel-card">
+                    <h3>Workspace Directory</h3>
+                    <input type="text" id="member-search-input" placeholder="Search members by handle..." style="margin:10px 0; padding:8px;" oninput="filterMemberDirectory()">
+                    <div id="ws-members-list" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:15px;"></div>
                     
-                    <!-- MODULE A: LIVE MULTIUSER DRAWING WHITEBOARD PLATFORM -->
-                    <div class="whiteboard-container">
-                        <div class="component-header">
-                            <div class="component-title"><i class="fas fa-paint-brush" style="color: var(--primary);"></i> Shared Whiteboard Vector Space</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);" id="ui-drawing-status-indicator">All changes propagated instantly</div>
-                        </div>
-                        <div class="canvas-area" id="canvas-wrapper">
-                            <!-- Live Floating Cursor overlays stream here dynamically -->
-                            <div id="canvas-presence-layer" style="position: absolute; inset: 0; pointer-events: none;"></div>
-                            <canvas id="collab-canvas"></canvas>
-                        </div>
-                        <div class="canvas-controls">
-                            <label style="font-size: 0.8rem; font-weight: 600;">Brush Tint:</label>
-                            <input type="color" id="canvas-color-picker" value="#2563eb" style="width: 40px; height: 30px; padding: 0; border: none; cursor: pointer; border-radius: 4px;">
-                            <button class="btn btn-secondary" onclick="clearLocalCanvasCanvas()" style="font-size: 0.75rem; padding: 4px 10px;">Clear Viewport</button>
-                        </div>
+                    <div style="background:#f1f5f9; padding:10px; border-radius:8px; border:1px dashed #cbd5e1; text-align:center;">
+                        <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600; display:block;">WORKSPACE TEAM 6-DIGIT CODE</span>
+                        <strong id="ws-code-display" style="font-size:1.3rem; letter-spacing:2px; color:var(--primary);">000000</strong>
                     </div>
+                </div>
 
-                    <!-- MODULE B: SHARED COOPERATIVE RECOGNITION TEXT BLOCKS MAP -->
-                    <div class="textboxes-container">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="font-size: 1rem; font-weight: 700;"><i class="fas fa-file-alt" style="color: var(--success);"></i> Multi-User Realtime Text Blocks</h3>
-                            <button class="btn btn-secondary" onclick="appendNewWorkspaceTextBlock()" style="font-size: 0.8rem; padding: 6px 12px;"><i class="fas fa-plus"></i> Add Text Box</button>
-                        </div>
-                        <div id="ui-textboxes-stack" style="display: flex; flex-direction: column; gap: 15px;">
-                            <!-- Synchronized collaborative blocks rendered live -->
-                        </div>
+                <!-- Chat & Slow Mode Module -->
+                <div class="panel-card chat-container">
+                    <h3>Workspace Live Channels</h3>
+                    <div id="chat-slowmode-banner" class="hidden" style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; padding:6px; font-size:0.75rem; font-weight:600; text-align:center; border-radius:4px; margin-bottom:6px;">
+                        <i class="fa-solid fa-hourglass-start"></i> Slow mode active! 5 second throttle applied.
                     </div>
+                    
+                    <div class="chat-messages" id="chat-messages-box"></div>
+                    
+                    <!-- Typing status indicator -->
+                    <div id="chat-typing-status" style="font-size:0.75rem; color:var(--text-muted); min-height:16px; padding:2px 5px;"></div>
 
-                    <!-- MODULE C: LIVE MEMBER DIRECTORY ROSTER CONTROL MANAGEMENT -->
-                    <div class="member-container">
-                        <div class="sidebar-section-title" style="margin-bottom: 12px;">Active Hub Inhabitants (<span id="ui-members-count">0</span> / 300)</div>
-                        <div class="search-wrapper">
-                            <input type="text" id="member-search-input" placeholder="Filter members by display handle..." oninput="evaluateMemberRosterFiltering()">
-                        </div>
-                        <div id="ui-members-roster-grid" class="member-grid">
-                            <!-- Active hub population mapped inside -->
+                    <div class="chat-input-area">
+                        <!-- Auto-suggest mention popup list -->
+                        <div id="mention-autocomplete-box" class="mention-dropdown hidden"></div>
+                        
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="chat-input-field" placeholder="Type message... Use @ to mention" oninput="handleChatInputThrottling(this)" onkeydown="if(event.key === 'Enter') sendWorkspaceChatMessage()">
+                            <button class="btn btn-primary" style="width:auto; padding:0 15px;" onclick="sendWorkspaceChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
                         </div>
                         
-                        <!-- HUB SECURE PASSCODE DISPLAY KEYFOOTER -->
-                        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px; border-radius: 6px;">
-                            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Workspace Secure Token Code:</span>
-                            <span id="ui-workspace-passcode-badge" style="font-family: monospace; font-size: 1rem; font-weight: bold; letter-spacing: 1px; color: var(--primary); background: white; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;">000000</span>
+                        <!-- Attachments Row & Poll Launch Buttons -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                            <div style="display:flex; gap:10px; font-size:1.1rem; color:var(--text-muted);">
+                                <label style="cursor:pointer;"><input type="file" id="media-upload-input" class="hidden" onchange="uploadWorkspaceChatFile(this)"><i class="fa-solid fa-paperclip" title="Upload Media (<70MB)"></i></label>
+                                <i class="fa-solid fa-square-poll-vertical" style="cursor:pointer;" title="Create Live Option Poll" onclick="showCreatePollModal()"></i>
+                            </div>
+                            <span style="font-size:0.7rem; color:var(--text-muted);">Max Limit: 70MB per payload file</span>
                         </div>
                     </div>
-
-                    <!-- MODULE D: WORKSPACE SECURE COMMUNICATIONS REALTIME CHAT ENGINE -->
-                    <div class="chat-container">
-                        <div class="component-header">
-                            <div class="component-title"><i class="fas fa-comments" style="color: #8b5cf6;"></i> Secured Workspace Communications</div>
-                            <span id="slowmode-status-indicator" class="status-badge hidden" style="background:#ffedd5; color:#c2410c; font-size:0.7rem;">Slow Mode Engaged</span>
-                        </div>
-                        
-                        <!-- Chat stream viewport -->
-                        <div id="ws-chat-messages-scroll" class="chat-messages">
-                            <!-- Stream nodes inserted here dynamically -->
-                        </div>
-
-                        <!-- Communication Input Command Deck -->
-                        <div class="chat-input-area">
-                            <div id="chat-slowmode-banner-node" class="slow-mode-banner hidden">Slow mode enforced. Wait 5 seconds between dispatches.</div>
-                            
-                            <!-- Contextual @ Member Mention List Dropdown -->
-                            <div id="chat-mention-dropdown-menu" class="mention-dropdown hidden"></div>
-                            
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="ws-chat-input" placeholder="Type a message (@ to mention colleagues)..." oninput="monitorChatInputBoxMentionsAndTyping(event)" onkeypress="handleWorkspaceChatKeypress(event)">
-                                <button class="btn btn-primary" id="btn-send-ws-msg" onclick="submitWorkspaceChatMessage()" style="width: auto;"><i class="fas fa-paper-plane"></i></button>
-                            </div>
-                            
-                            <div class="chat-controls">
-                                <!-- Multi-Media Unsigned Cloudinary Uploader Deck -->
-                                <button class="btn btn-secondary" onclick="document.getElementById('chat-hidden-file-input').click()" style="padding: 4px 8px; font-size: 0.75rem;" title="Upload limit: 70MB maximum asset size">
-                                    <i class="fas fa-paperclip"></i> Share Asset (&lt;70MB)
-                                </button>
-                                <input type="file" id="chat-hidden-file-input" class="hidden" onchange="processMediaAttachmentSelection(this)">
-                                
-                                <button class="btn btn-secondary" onclick="openCreatePollModal()" style="padding: 4px 8px; font-size: 0.75rem;">
-                                    <i class="fas fa-poll-h"></i> Launch Consensus Poll
-                                </button>
-                            </div>
-                            <div id="ws-chat-typing-line" class="typing-indicator"></div>
-                        </div>
-                    </div>
-
                 </div>
             </div>
-
-        </main>
+        </div>
     </div>
 
-    <!-- PROFILE MANAGEMENT MODAL DRAWER (SIDEBAR ACCESS TRICK) -->
-    <div id="modal-profile-drawer" class="modal-mask hidden">
-        <div class="modal-box">
-            <h3 style="margin-bottom: 12px; font-weight: 800;"><i class="fas fa-id-card"></i> Personal Profile Ledger</h3>
+    <!-- Modals Layer System -->
+    <div id="compulsory-profile-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom:15px; text-align:center;"><i class="fa-solid fa-id-card text-primary"></i> Account Setup</h2>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Please fill out your identity handles before moving into shared communication networks.</p>
             <div class="input-group">
-                <label>Display Name</label>
-                <input type="text" id="profile-edit-name">
-            </div>
-            <div class="input-group">
-                <label>Bio / Description</label>
-                <textarea id="profile-edit-desc" rows="3"></textarea>
+                <label>Display Handle Nickname</label>
+                <input type="text" id="prof-display-name" placeholder="John Doe">
             </div>
             <div class="input-group">
-                <label>Profile Picture Asset Replacement</label>
-                <input type="file" id="profile-edit-file" accept="image/*" style="padding:5px;">
+                <label>Profile Picture Upload</label>
+                <input type="file" id="prof-pic-file" onchange="uploadProfileImageToCloudinary(this)">
+                <input type="hidden" id="prof-pic-url" value="">
+                <p id="prof-upload-status" style="font-size:0.75rem; color:var(--success); margin-top:4px;"></p>
             </div>
-            
-            <div style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; border: 1px solid var(--border);">
-                <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; text-transform: uppercase;">Your Global Friend Keycode:</span>
-                <span id="ui-profile-friend-code" style="font-family: monospace; font-size: 1.3rem; font-weight: 800; color: var(--text-main); letter-spacing: 1px;">------</span>
+            <div class="input-group">
+                <label>User Status Description</label>
+                <textarea id="prof-description" rows="2" placeholder="Tell us about yourself..."></textarea>
             </div>
+            <div class="input-group">
+                <label>Your 6-Digit Friend Invite Code</label>
+                <input type="text" id="prof-friend-code-display" readonly style="background:#f1f5f9; font-weight:700; text-align:center; letter-spacing:1px;">
+            </div>
+            <button class="btn btn-primary" onclick="saveUserProfileDetails()">Save Framework Profiles</button>
+        </div>
+    </div>
 
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-secondary" onclick="closeProfileDrawer()" style="flex: 1;">Cancel</button>
-                <button class="btn btn-primary" onclick="saveProfileDrawerModifications()" style="flex: 1;">Apply Changes</button>
+    <!-- Create Workspace Prompt Model -->
+    <div id="create-workspace-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom:15px;">Create Collaboration Space</h2>
+            <div class="input-group">
+                <label>Workspace Topic Name</label>
+                <input type="text" id="ws-create-name" placeholder="Engineering Team Alpha">
+            </div>
+            <div class="input-group">
+                <label>Workspace Cover Avatar</label>
+                <input type="file" onchange="uploadWorkspaceAvatarToCloudinary(this)">
+                <input type="hidden" id="ws-create-avatar-url" value="">
+                <p id="ws-upload-status" style="font-size:0.75rem; color:var(--success); margin-top:4px;"></p>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" style="background:#64748b;" onclick="closeAllModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="executeCreateWorkspace()">Initialize Space</button>
             </div>
         </div>
     </div>
 
-    <!-- WORKSPACE CREATION CONFIGURATION MODAL -->
-    <div id="modal-create-workspace" class="modal-mask hidden">
-        <div class="modal-box">
-            <h3 style="margin-bottom: 12px; font-weight: 800;"><i class="fas fa-plus-square"></i> Initialize New Workspace</h3>
+    <!-- Join Workspace Prompt Model -->
+    <div id="join-workspace-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom:15px;">Join Existing Network Space</h2>
             <div class="input-group">
-                <label>Workspace Name *</label>
-                <input type="text" id="ws-create-name" placeholder="Engineering Operations Hub">
+                <label>Enter 6-Digit Workspace Code</label>
+                <input type="text" id="ws-join-code" placeholder="123456" maxlength="6" style="text-align:center; font-size:1.3rem; letter-spacing:2px;">
             </div>
-            <div class="input-group">
-                <label>Workspace Branding Image Logo</label>
-                <input type="file" id="ws-create-file" accept="image/*" style="padding: 5px;">
-                <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Optional parameter - defaults to graphic avatar icon</p>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closeCreateWorkspaceModal()" style="flex: 1;">Cancel</button>
-                <button class="btn btn-primary" onclick="commitWorkspaceDeployment()" style="flex: 1;">Deploy Workspace</button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" style="background:#64748b;" onclick="closeAllModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="executeJoinWorkspace()">Connect to Code</button>
             </div>
         </div>
     </div>
 
-    <!-- WORKSPACE INGRESS PASSPORT JOIN DIALOG MODAL -->
-    <div id="modal-join-workspace" class="modal-mask hidden">
-        <div class="modal-box">
-            <h3 style="margin-bottom: 12px; font-weight: 800;"><i class="fas fa-door-open"></i> Join Private Workspace</h3>
+    <!-- Add Friend Dialog Modal -->
+    <div id="add-friend-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom:15px;">Send Friend Interconnect Request</h2>
             <div class="input-group">
-                <label>Enter 6-Digit Secure Workspace Token Code</label>
-                <input type="text" id="ws-join-code" max-length="6" placeholder="AX92NB" style="text-transform: uppercase; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px; text-align: center;">
+                <label>Enter Friend UID or 6-Digit Friend Code</label>
+                <input type="text" id="friend-target-identifier" placeholder="Enter target signature...">
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closeJoinWorkspaceModal()" style="flex: 1;">Dismiss</button>
-                <button class="btn btn-primary" onclick="submitJoinWorkspaceCodeAccess()" style="flex: 1;">Request Access Entry</button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" style="background:#64748b;" onclick="closeAllModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="executeSendFriendRequest()">Transmit Token</button>
             </div>
         </div>
     </div>
 
-    <!-- ADD FRIEND CONNECTION MODAL DRAWER -->
-    <div id="modal-add-friend" class="modal-mask hidden">
-        <div class="modal-box">
-            <h3 style="margin-bottom: 12px; font-weight: 800;"><i class="fas fa-user-friends"></i> Send Friend Invitation</h3>
-            <div class="input-group">
-                <label>Enter target individual's Friend Code or Account UID</label>
-                <input type="text" id="friend-target-code" placeholder="6-digit token code or alphanumeric UID" style="text-align: center;">
+    <!-- Friend Requests Modal -->
+    <div id="friend-requests-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom:15px;">Pending Inbound Connections</h2>
+            <div id="friend-requests-list-box" style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
+            <button class="btn btn-primary" onclick="closeAllModals()">Close Panel</button>
+        </div>
+    </div>
+
+    <!-- Direct Message Modal System Layout -->
+    <div id="dm-chat-modal" class="modal hidden">
+        <div class="modal-content" style="max-width:550px;">
+            <h2 id="dm-target-name-display" style="margin-bottom:10px;">Direct Encryption Message</h2>
+            <div id="dm-actions-bar" style="margin-bottom:12px; display:flex; gap:6px;">
+                <button class="btn-small" style="background:var(--error); color:white;" onclick="executeUnfriendActiveDM()">Unfriend</button>
+                <button id="dm-block-toggle-btn" class="btn-small" style="background:#1e293b; color:white;" onclick="toggleBlockActiveDM()">Block User</button>
+                <button class="btn-small" style="background:#f59e0b; color:white;" onclick="executeReportActiveDM()">Report Context</button>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closeAddFriendModal()" style="flex: 1;">Cancel</button>
-                <button class="btn btn-primary" onclick="submitFriendConnectionRequest()" style="flex: 1;">Transmit Request</button>
+            <div id="dm-messages-container" style="height:220px; overflow-y:auto; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;"></div>
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="dm-message-input-field" placeholder="Type direct transmission..." onkeydown="if(event.key === 'Enter') sendDirectPrivateMessage()">
+                <button class="btn btn-primary" style="width:auto;" onclick="sendDirectPrivateMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+            <button class="btn btn-primary" style="background:#64748b; margin-top:12px;" onclick="closeAllModals()">Dismiss Workspace Mesh</button>
+        </div>
+    </div>
+
+    <!-- Create Workspace Poll Design Modal -->
+    <div id="create-poll-modal" class="modal hidden">
+        <div class="modal-content" style="max-width:500px;">
+            <h2 style="margin-bottom:12px;">Launch Realtime Workspace Poll</h2>
+            <div class="input-group">
+                <label>Question Heading Context</label>
+                <input type="text" id="poll-question-input" placeholder="What core layout architecture strategy should we prioritize?">
+            </div>
+            <div class="input-group">
+                <label>Options (Comma Separated, Max 10)</label>
+                <input type="text" id="poll-options-input" placeholder="Option A, Option B, Option C">
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" style="background:#64748b;" onclick="closeAllModals()">Dismiss</button>
+                <button class="btn btn-primary" onclick="executePostChatPoll()">Broadcast Poll Node</button>
             </div>
         </div>
     </div>
 
-    <!-- INTERACTIVE WORKSPACE CONSENSUS POLL CREATION MODAL -->
-    <div id="modal-create-poll" class="modal-mask hidden">
-        <div class="modal-box" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
-            <h3 style="margin-bottom: 12px; font-weight: 800;"><i class="fas fa-poll"></i> Launch Real-Time Workspace Poll</h3>
-            <div class="input-group">
-                <label>Poll Focus Question</label>
-                <input type="text" id="poll-query-input" placeholder="Should we migrate production code to Serverfluxionary?">
-            </div>
-            <div class="input-group">
-                <label>Options (Up to 10 choices maximum)</label>
-                <div id="poll-options-builder-stack" style="display:flex; flex-direction:column; gap:8px;">
-                    <input type="text" class="poll-builder-opt" placeholder="Option 1 Element">
-                    <input type="text" class="poll-builder-opt" placeholder="Option 2 Element">
-                </div>
-                <button class="btn btn-secondary" onclick="injectAnotherPollOptionRow()" style="margin-top: 8px; font-size: 0.75rem; padding: 4px 8px; width: auto;"><i class="fas fa-plus"></i> Inject Option Field</button>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 25px;">
-                <button class="btn btn-secondary" onclick="closeCreatePollModal()" style="flex: 1;">Discard</button>
-                <button class="btn btn-primary" onclick="transmitNewlyConfiguredPollMessage()" style="flex: 1;">Publish Consensus Poll</button>
-            </div>
+    <!-- QR Code Invite Target Code Container Layout Display -->
+    <div id="qr-display-modal" class="modal hidden">
+        <div class="modal-content" style="text-align:center;">
+            <h2 style="margin-bottom:15px;">Scan Invite Mesh Code</h2>
+            <div id="qrcode-rendering-target" style="display:inline-block; margin:15px auto; padding:10px; background:white; border:1px solid #cbd5e1;"></div>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Scan this matrix string vector from another active authenticated session platform window instance to instantly request handshake sync clearance.</p>
+            <button class="btn btn-primary" onclick="closeAllModals()">Close Canvas Frame</button>
         </div>
     </div>
 
-    <!-- WORKSPACE QR VISUALIZER INVITATION OVERLAY MODAL -->
-    <div id="modal-qr-display" class="modal-mask hidden">
-        <div class="modal-box" style="text-align: center;">
-            <h3 style="margin-bottom: 8px; font-weight: 800;"><i class="fas fa-qrcode"></i> Workspace QR Ingress Invitation</h3>
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 20px;">Scan this graphic below to register directly onto this collaboration stack session framework.</p>
-            <div id="qr-rendering-target-zone" style="background: white; padding: 15px; display: inline-block; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 15px;">
-                <!-- QR Code Dynamic Graphic Image Element Injection -->
-            </div>
-            <button class="btn btn-primary" onclick="document.getElementById('modal-qr-display').classList.add('hidden')">Dismiss Visualizer</button>
-        </div>
-    </div>
-
-
-    <!-- CORE APPLICATIONS MODULAR INTEGRATION ENGINE -->
+    <!-- Application Script Module Execution Block -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getDatabase, ref, set, push, onValue, update, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, set, push, onValue, update, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Hard-Configured Parameter Keys passed down by the request framework specs
+        // Firebase Framework Initialization Configuration Configurations Mapping Node
         const firebaseConfig = {
             apiKey: "AIzaSyCzV75WoXRkbX9Davc_3Vr853Gvej1WEww",
             authDomain: "serverfluxionary.firebaseapp.com",
@@ -566,1363 +450,1048 @@
             messagingSenderId: "693102090542",
             appId: "1:693102090542:web:59298f926dd0257ce682bf"
         };
-        
-        const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dufbzl68g/auto/upload";
-        const CLOUDINARY_PRESET = "ml_default";
 
-        // Instantiating Module Environments
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
+        const googleProvider = new GoogleAuthProvider();
 
-        // Core App Cache Vectors
-        let globalUserSessionObject = null;
-        let globalProfileRecord = null;
-        let currentActiveWorkspaceID = null;
-        let currentActiveDMBuddyID = null;
-        let isAuthRegistrationMode = false;
-        
-        // Whiteboard Vectors
-        let canvasElement = document.getElementById('collab-canvas');
-        let canvasContext = canvasElement.getContext('2d');
-        let localDrawingFlag = false;
-        let localBrushHexColor = '#2563eb';
-        let latestRecordedX = 0;
-        let latestRecordedY = 0;
+        // Cloudinary Pipeline Configuration Assets Signatures
+        const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dufbzl68g/image/upload";
+        const CLOUDINARY_PRESET = "ml_default";
 
-        // Slow Mode Tracking state data
-        let localLastMessageSentTimestamp = 0;
+        // Central State Machine Management Variables
+        let isLoginMode = true;
+        let currentUserProfile = null;
+        let activeWorkspaceId = null;
+        let activeWorkspaceData = null;
+        let activeDMFriendUid = null;
+        let allUsersCachedMap = {};
 
-        // Custom Local Application Notification Toast Utility
-        window.showToast = function(msg, type = 'success') {
+        // Whiteboard Drawing Canvas Metrics References
+        const canvas = document.getElementById('whiteboard-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Slow Mode Chat Vector Trackers
+        let chatThrottlingTimer = null;
+
+        // --- CORE APPLICATION BOOTSTRAPPING SYSTEM ---
+        window.showToast = (msg, type = 'success') => {
             const container = document.getElementById('toast-container');
-            const element = document.createElement('div');
-            element.className = `toast ${type}`;
-            let icon = 'fa-check-circle';
-            if (type === 'error') icon = 'fa-exclamation-circle';
-            if (type === 'warning') icon = 'fa-exclamation-triangle';
-            element.innerHTML = `<i class="fas ${icon}" style="color: var(--${type})"></i><span>${msg}</span>`;
-            container.appendChild(element);
-            setTimeout(() => { element.remove(); }, 4000);
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+            toast.innerHTML = `<i class="fas ${icon}" style="color: var(--${type})"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
         };
 
-        // --- AUTHENTICATION FLOWS ENGINE ---
-        window.toggleAuthMode = function() {
-            isAuthRegistrationMode = !isAuthRegistrationMode;
-            document.getElementById('auth-title').innerText = isAuthRegistrationMode ? "Create Synchronous Account" : "Welcome to Synchronous";
-            document.getElementById('btn-email-auth').innerText = isAuthRegistrationMode ? "Register Account" : "Sign In";
-            document.getElementById('auth-toggle-msg').innerText = isAuthRegistrationMode ? "Already have an account?" : "New to the app?";
-            document.getElementById('auth-toggle-action').innerText = isAuthRegistrationMode ? "Sign in here." : "Sign up now.";
-            document.getElementById('forgot-password-container').style.display = isAuthRegistrationMode ? "none" : "block";
+        window.toggleSidebar = () => {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
         };
 
-        window.handleEmailAuth = async function() {
-            const email = document.getElementById('auth-email').value.trim();
-            const password = document.getElementById('auth-password').value;
-            if(!email || !password) return showToast("Please input valid email and password properties.", "error");
+        window.closeAllModals = () => {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(m => m.classList.add('hidden'));
+        };
+
+        // --- AUTHENTICATION FLOW MANAGEMENT PIPELINE ---
+        window.toggleAuthMode = () => {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "Sign In" : "Create Account";
+            document.getElementById('auth-btn').innerText = isLoginMode ? "Continue with Email" : "Create Account Matrix";
+            document.getElementById('auth-toggle-text').innerText = isLoginMode ? "New to the app?" : "Already have an account?";
+            document.getElementById('auth-toggle-link').innerText = isLoginMode ? "Sign up now." : "Sign In";
+            document.getElementById('forgot-link').classList.toggle('hidden', !isLoginMode);
+        };
+
+        window.handleEmailAuth = async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            if(!email || !pass) return showToast("Fields parameter payload components cannot remain null.", "error");
 
             try {
-                if (isAuthRegistrationMode) {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                    showToast("Account established successfully! Sending system token validation logs.");
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                    showToast("Session authorization clear.");
                 } else {
-                    await signInWithEmailAndPassword(auth, email, password);
-                    showToast("Authentication confirmed. Access granted.");
+                    const credentials = await createUserWithEmailAndPassword(auth, email, pass);
+                    await sendEmailVerification(credentials.user);
+                    showToast("Account created! Outbound verification link dispatched.");
                 }
             } catch (err) {
                 showToast(err.message, "error");
             }
         };
 
-        window.handleGoogleAuth = async function() {
-            const provider = new GoogleAuthProvider();
+        window.handleGoogleAuth = async () => {
             try {
-                await signInWithPopup(auth, provider);
-                showToast("Google OAuth identity assertion authenticated.");
-            } catch(err) {
+                await signInWithPopup(auth, googleProvider);
+                showToast("Federated credentials identity sync complete.");
+            } catch (err) {
                 showToast(err.message, "error");
             }
         };
 
-        window.triggerForgotPassword = async function() {
-            const email = document.getElementById('auth-email').value.trim();
-            if(!email) return showToast("Specify target account email address in field slot first.", "warning");
+        window.handleForgotPassword = async () => {
+            const email = document.getElementById('email').value;
+            if(!email) return showToast("Provide target recovery mail address.", "error");
             try {
                 await sendPasswordResetEmail(auth, email);
-                showToast("Account recovery blueprint transmitted to requested inbox index.");
-            } catch(err) {
+                showToast("Recovery routing map token transmitted.");
+            } catch (err) {
                 showToast(err.message, "error");
             }
         };
 
-        window.executeSignOut = function() {
-            signOut(auth).then(() => {
-                window.location.reload();
-            });
-        };
+        window.logout = () => signOut(auth).then(() => window.location.reload());
 
-        // Monitor Firebase Auth Core Presence Loops
+        // --- GLOBAL REALTIME SESSION TRACKER ROUTER ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                globalUserSessionObject = user;
-                document.getElementById('auth-screen').classList.add('hidden');
-                document.getElementById('app-console').classList.remove('hidden');
-                bindGlobalProfileDataSynchronization(user.uid);
+                // If standard registration route was selected, enforce mail verification validation constraint ruleset
+                if (!user.emailVerified && user.providerData[0].providerId === 'password') {
+                    showSection('verify-section');
+                } else {
+                    document.getElementById('nav-user').classList.remove('hidden');
+                    cacheGlobalUsersDirectory();
+                    listenToUserIdentityDocument(user);
+                }
             } else {
-                globalUserSessionObject = null;
-                document.getElementById('app-console').classList.add('hidden');
-                document.getElementById('auth-screen').classList.remove('hidden');
+                showSection('auth-section');
             }
         });
 
-        // --- INITIAL RECOGNITION PROFILE SETUP DRAWER AND DATA BINDING ---
-        function bindGlobalProfileDataSynchronization(uid) {
-            onValue(ref(db, `users/${uid}`), (snapshot) => {
+        function showSection(id) {
+            ['auth-section', 'verify-section', 'app-dashboard'].forEach(sec => {
+                document.getElementById(sec).classList.add('hidden');
+            });
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        // --- USER INDEPENDENT DATA MANAGEMENT STACK ---
+        function listenToUserIdentityDocument(user) {
+            onValue(ref(db, `users/${user.uid}`), (snapshot) => {
                 const profile = snapshot.val();
-                globalProfileRecord = profile;
-                
                 if (!profile || !profile.displayName) {
-                    // Profile uninitialized, reveal mandatory onboarding modal sheet
-                    document.getElementById('modal-onboarding').classList.remove('hidden');
+                    // Generate a persistent static unique 6 digit routing friend token matrix
+                    const randomFriendCode = Math.floor(100000 + Math.random() * 900000).toString();
+                    document.getElementById('prof-friend-code-display').value = randomFriendCode;
+                    document.getElementById('compulsory-profile-modal').classList.remove('hidden');
                 } else {
-                    document.getElementById('modal-onboarding').classList.add('hidden');
-                    // Populate local user asset icons across framework
-                    document.getElementById('bar-user-avatar').src = profile.profilePic || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80";
-                    initiateDynamicSidebarCollectionsStream();
-                    listenToMentionNotifications(uid);
-                }
-            });
-        }
-
-        // Cloudinary Unsigned Asset Transmission Worker Routine
-        async function transferFileAssetToCloudinary(fileObject) {
-            if (fileObject.size > 70 * 1024 * 1024) {
-                showToast("Asset size rejection boundary overflow. File must be smaller than 70 megabytes.", "error");
-                throw new Error("Payload size cap violation.");
-            }
-            const payload = new FormData();
-            payload.append("file", fileObject);
-            payload.append("upload_preset", CLOUDINARY_PRESET);
-
-            const response = await fetch(CLOUDINARY_URL, { method: "POST", body: payload });
-            if (!response.ok) throw new Error("Cloudinary engine interface sync failed.");
-            const mappingData = await response.json();
-            return mappingData.secure_url;
-        }
-
-        window.saveOnboardingProfile = async function() {
-            const handle = document.getElementById('onboard-name').value.trim();
-            const bio = document.getElementById('onboard-desc').value.trim();
-            const fileField = document.getElementById('onboard-file').files[0];
-            const saveBtn = document.getElementById('btn-save-onboarding');
-
-            if(!handle) return showToast("Profile identity display handle required.", "warning");
-            
-            saveBtn.disabled = true;
-            saveBtn.innerText = "Uploading Profiles Elements...";
-
-            try {
-                let finalPicUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80";
-                if(fileField) {
-                    finalPicUrl = await transferFileAssetToCloudinary(fileField);
-                }
-                
-                // Construct completely unique 6 digit Friend Invite Code index matching requirements
-                const generatedFriendKeyToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-                await set(ref(db, `users/${globalUserSessionObject.uid}`), {
-                    uid: globalUserSessionObject.uid,
-                    displayName: handle,
-                    profilePic: finalPicUrl,
-                    description: bio,
-                    friendCode: generatedFriendKeyToken,
-                    registeredAt: Date.now()
-                });
-                
-                // Map the dynamic search index node reference matching lookups token back to uid
-                await set(ref(db, `friendCodes/${generatedFriendKeyToken}`), globalUserSessionObject.uid);
-                
-                showToast("Public profile variables established securely.");
-                document.getElementById('modal-onboarding').classList.add('hidden');
-            } catch(err) {
-                showToast(err.message, "error");
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerText = "Save Profile Settings";
-            }
-        };
-
-        // --- WORKSPACE CREATION AND LISTS INGRESS LOGIC ENGINE ---
-        window.openCreateWorkspaceModal = () => document.getElementById('modal-create-workspace').classList.remove('hidden');
-        window.closeCreateWorkspaceModal = () => document.getElementById('modal-create-workspace').classList.add('hidden');
-        window.openJoinWorkspaceModal = () => document.getElementById('modal-join-workspace').classList.remove('hidden');
-        window.closeJoinWorkspaceModal = () => document.getElementById('modal-join-workspace').classList.add('hidden');
-
-        window.commitWorkspaceDeployment = async function() {
-            const hubName = document.getElementById('ws-create-name').value.trim();
-            const fileElement = document.getElementById('ws-create-file').files[0];
-            if (!hubName) return showToast("Workspace naming context token required.", "warning");
-
-            try {
-                let workspaceIconUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=80&q=80";
-                if (fileElement) {
-                    workspaceIconUrl = await transferFileAssetToCloudinary(fileElement);
-                }
-
-                const uniqueSecureHubToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const freshWorkspaceReferenceNode = push(ref(db, 'workspaces'));
-                const newWorkspaceUID = freshWorkspaceReferenceNode.key;
-
-                const workspaceConfigurationObject = {
-                    id: newWorkspaceUID,
-                    name: hubName,
-                    picture: workspaceIconUrl,
-                    passcode: uniqueSecureHubToken,
-                    creatorId: globalUserSessionObject.uid,
-                    createdAt: Date.now()
-                };
-
-                await set(freshWorkspaceReferenceNode, workspaceConfigurationObject);
-                // Assign self onto the core hub membership grid mapping vector
-                await set(ref(db, `workspaceMembers/${newWorkspaceUID}/${globalUserSessionObject.uid}`), {
-                    uid: globalUserSessionObject.uid,
-                    role: 'creator',
-                    joinedAt: Date.now()
-                });
-                // Build routing index link map record
-                await set(ref(db, `workspaceCodes/${uniqueSecureHubToken}`), newWorkspaceUID);
-
-                showToast("Workspace environment generated cleanly.");
-                closeCreateWorkspaceModal();
-                mountWorkspaceSessionEnvironment(newWorkspaceUID);
-            } catch(err) {
-                showToast(err.message, "error");
-            }
-        };
-
-        window.submitJoinWorkspaceCodeAccess = function() {
-            const codeInput = document.getElementById('ws-join-code').value.trim().toUpperCase();
-            if (codeInput.length !== 6) return showToast("Token format mismatch. Requires 6 alphanumeric units.", "warning");
-
-            onValue(ref(db, `workspaceCodes/${codeInput}`), (snapshot) => {
-                const workspaceTargetID = snapshot.val();
-                if(!workspaceTargetID) {
-                    showToast("No active workspace matches that authorization secure token code.", "error");
-                    return;
-                }
-                executeJoinWorkspaceTransactionalOperation(workspaceTargetID);
-            }, { onlyOnce: true });
-        };
-
-        function executeJoinWorkspaceTransactionalOperation(workspaceId) {
-            // Check current occupancy headcount constraints using transactional safeguards logic limit 300
-            const memberCountRef = ref(db, `workspaceMembers/${workspaceId}`);
-            
-            onValue(memberCountRef, (snapshot) => {
-                const membersRecord = snapshot.val() || {};
-                
-                if (membersRecord[globalUserSessionObject.uid]) {
-                    showToast("Workspace redundancy check flagged: You are already inside this workspace stack context.", "warning");
-                    closeJoinWorkspaceModal();
-                    mountWorkspaceSessionEnvironment(workspaceId);
-                    return;
-                }
-
-                if (Object.keys(membersRecord).length >= 300) {
-                    showToast("Access Ingress Denied. This collaboration ecosystem has encountered its absolute maximum headcount threshold capacity of 300 members.", "error");
-                    return;
-                }
-
-                // Ingress registration commit node injection
-                set(ref(db, `workspaceMembers/${workspaceId}/${globalUserSessionObject.uid}`), {
-                    uid: globalUserSessionObject.uid,
-                    role: 'member',
-                    joinedAt: Date.now()
-                }).then(() => {
-                    showToast("Ingress accepted. Access payload credentials verified.");
-                    closeJoinWorkspaceModal();
-                    mountWorkspaceSessionEnvironment(workspaceId);
-                });
-
-            }, { onlyOnce: true });
-        }
-
-        // --- REALT-TIME DYNAMIC DATA LAYERS STREAM BINDERS ---
-        function initiateDynamicSidebarCollectionsStream() {
-            // Stream associated user workspaces arrays
-            onValue(ref(db, 'workspaces'), (snapshot) => {
-                const stack = snapshot.val();
-                const listingTarget = document.getElementById('ui-workspaces-list');
-                listingTarget.innerHTML = '';
-                
-                if(!stack) return;
-
-                Object.keys(stack).forEach(wsID => {
-                    // Assert membership checks locally
-                    onValue(ref(db, `workspaceMembers/${wsID}/${globalUserSessionObject.uid}`), (memSnap) => {
-                        if(memSnap.exists()) {
-                            const data = stack[wsID];
-                            const row = document.createElement('div');
-                            row.className = `list-item ${currentActiveWorkspaceID === wsID ? 'active' : ''}`;
-                            row.onclick = () => mountWorkspaceSessionEnvironment(wsID);
-                            row.innerHTML = `<img src="${data.picture}"><span>${data.name}</span>`;
-                            listingTarget.appendChild(row);
-                        }
-                    });
-                });
-            });
-
-            // Stream and construct buddy profiles interactions elements matching network links
-            onValue(ref(db, `friends/${globalUserSessionObject.uid}`), (snapshot) => {
-                const directory = snapshot.val();
-                const elementDeck = document.getElementById('ui-friends-list');
-                elementDeck.innerHTML = '';
-                
-                if(!directory) return;
-
-                Object.keys(directory).forEach(buddyUID => {
-                    if(directory[buddyUID].status === 'friends') {
-                        onValue(ref(db, `users/${buddyUID}`), (bSnap) => {
-                            const bProfile = bSnap.val();
-                            if(!bProfile) return;
-                            const row = document.createElement('div');
-                            row.className = `list-item ${currentActiveDMBuddyID === buddyUID ? 'active' : ''}`;
-                            row.onclick = () => mountDirectMessengerWorkspaceSession(buddyUID);
-                            row.innerHTML = `<img src="${bProfile.profilePic}"><span>${bProfile.displayName}</span>`;
-                            elementDeck.appendChild(row);
-                        });
-                    }
-                });
-            });
-
-            // Incoming connection requests mapping list items elements
-            onValue(ref(db, `friendRequests/${globalUserSessionObject.uid}`), (snapshot) => {
-                const requests = snapshot.val();
-                const wrapper = document.getElementById('ui-friend-requests-list');
-                wrapper.innerHTML = '';
-                
-                if(!requests) return;
-
-                Object.keys(requests).forEach(senderUID => {
-                    if(requests[senderUID] === 'received') {
-                        onValue(ref(db, `users/${senderUID}`), (sSnap) => {
-                            const sProfile = sSnap.val();
-                            if(!sProfile) return;
-                            const block = document.createElement('div');
-                            block.style.cssText = "background: white; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; font-size: 0.8rem;";
-                            block.innerHTML = `
-                                <div style="font-weight: 600; margin-bottom:6px;">${sProfile.displayName}</div>
-                                <div style="display:flex; gap: 4px;">
-                                    <button class="btn btn-primary" onclick="resolveFriendRequestInteraction('${senderUID}', true)" style="padding: 2px 6px; font-size:0.75rem;">Accept</button>
-                                    <button class="btn btn-secondary" onclick="resolveFriendRequestInteraction('${senderUID}', false)" style="padding: 2px 6px; font-size:0.75rem;">Decline</button>
-                                </div>
-                            `;
-                            wrapper.appendChild(block);
-                        });
-                    }
-                });
-            });
-        }
-
-        // --- CORE ACTIVE WORKSPACE ACTIVE CONTROL MOUNT ROUTINES ---
-        function mountWorkspaceSessionEnvironment(workspaceId) {
-            currentActiveDMBuddyID = null;
-            currentActiveWorkspaceID = workspaceId;
-            
-            document.getElementById('workspace-blank-state').classList.add('hidden');
-            document.getElementById('direct-chat-state').classList.add('hidden');
-            document.getElementById('workspace-active-state').classList.remove('hidden');
-
-            // Synchronize static meta data descriptors configurations headers
-            onValue(ref(db, `workspaces/${workspaceId}`), (snapshot) => {
-                const wsMeta = snapshot.val();
-                if(!wsMeta) return;
-
-                document.getElementById('active-ws-title').innerText = wsMeta.name;
-                document.getElementById('active-ws-avatar').src = wsMeta.picture;
-                document.getElementById('ui-workspace-passcode-badge').innerText = wsMeta.passcode;
-
-                // Adjust administration levels permission vectors visibility structures
-                if(wsMeta.creatorId === globalUserSessionObject.uid) {
-                    document.getElementById('btn-delete-workspace').classList.remove('hidden');
-                } else {
-                    document.getElementById('btn-delete-workspace').classList.add('hidden');
-                }
-
-                // Verify secondary administrative level elevations protection maps checks
-                onValue(ref(db, `workspaceMembers/${workspaceId}/${globalUserSessionObject.uid}`), (memberSnap) => {
-                    const selfRoleData = memberSnap.val();
-                    if(selfRoleData && selfRoleData.role === 'admin') {
-                        document.getElementById('btn-delete-workspace').classList.remove('hidden'); // Admin gets creator privileges
-                    }
-                });
-            });
-
-            // Bootstrap real-time operational layers features modules inside the environment bounds
-            engageWhiteboardSynchronizationModules(workspaceId);
-            engageSharedTextBoxesSynchronizationEngine(workspaceId);
-            engageMemberRosterSynchronizationInterface(workspaceId);
-            engageCommunicationsChannelChatStreams(workspaceId);
-        }
-
-        // --- MODULE A WORKERS: REALTIME DRAWING WHITEBOARD PLATFORM ---
-        function engageWhiteboardSynchronizationModules(workspaceId) {
-            const canvasPresenceRef = ref(db, `canvasPresence/${workspaceId}`);
-            const drawingHistoryRef = ref(db, `canvasHistory/${workspaceId}`);
-            const canvasPresenceLayer = document.getElementById('canvas-presence-layer');
-            
-            // Adjust vector tracking dimensions parameters bounding layouts scales dynamically
-            canvasElement.width = document.getElementById('canvas-wrapper').clientWidth;
-            canvasElement.height = 320;
-
-            // Paint canvas backdrops backgrounds lines cleanly
-            canvasContext.fillStyle = "#f8fafc";
-            canvasContext.fillRect(0, 0, canvasElement.width, canvasElement.height);
-
-            // Listen to real-time structural stroke rendering pipelines from remote assets
-            onValue(drawingHistoryRef, (snapshot) => {
-                const tracks = snapshot.val();
-                if(!tracks) {
-                    canvasContext.fillStyle = "#f8fafc";
-                    canvasContext.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                    return;
-                }
-                // Clear and redraw vector history array map
-                canvasContext.fillStyle = "#f8fafc";
-                canvasContext.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                
-                Object.keys(tracks).forEach(key => {
-                    const stroke = tracks[key];
-                    canvasContext.beginPath();
-                    canvasContext.strokeStyle = stroke.color;
-                    canvasContext.lineWidth = 3;
-                    canvasContext.lineCap = 'round';
-                    canvasContext.moveTo(stroke.x0, stroke.y0);
-                    canvasContext.lineTo(stroke.x1, stroke.y1);
-                    canvasContext.stroke();
-                });
-            });
-
-            // Listen to dynamic multiplayer overlay presence markers
-            onValue(canvasPresenceRef, (snapshot) => {
-                canvasPresenceLayer.innerHTML = '';
-                const presenceSet = snapshot.val();
-                if(!presenceSet) return;
-
-                Object.keys(presenceSet).forEach(userKey => {
-                    if(userKey !== globalUserSessionObject.uid) {
-                        const record = presenceSet[userKey];
-                        // Assert that remote cursor coordinate element marker matches window ratios viewport accurately
-                        if(record.drawingState === true) {
-                            const flagNode = document.createElement('div');
-                            flagNode.className = "cursor-indicator";
-                            flagNode.style.top = `${record.y}px`;
-                            flagNode.style.left = `${record.x}px`;
-                            flagNode.innerText = `✍️ ${record.name}`;
-                            canvasPresenceLayer.appendChild(flagNode);
-                        }
-                    }
-                });
-            });
-
-            // Capture internal pointer operations bounds variables parameters
-            canvasElement.onmousedown = (e) => {
-                localDrawingFlag = true;
-                const rect = canvasElement.getBoundingClientRect();
-                latestRecordedX = e.clientX - rect.left;
-                latestRecordedY = e.clientY - rect.top;
-                
-                update(ref(db, `canvasPresence/${workspaceId}/${globalUserSessionObject.uid}`), {
-                    name: globalProfileRecord.displayName,
-                    drawingState: true,
-                    x: latestRecordedX,
-                    y: latestRecordedY
-                });
-            };
-
-            canvasElement.onmousemove = (e) => {
-                if(!localDrawingFlag) return;
-                const rect = canvasElement.getBoundingClientRect();
-                const currentX = e.clientX - rect.left;
-                const currentY = e.clientY - rect.top;
-
-                // Fire segment array update straight to Firebase RTDB node structures pipelines
-                const vectorStrokeInstanceNode = push(ref(db, `canvasHistory/${workspaceId}`));
-                set(vectorStrokeInstanceNode, {
-                    x0: latestRecordedX,
-                    y0: latestRecordedY,
-                    x1: currentX,
-                    y1: currentY,
-                    color: document.getElementById('canvas-color-picker').value,
-                    author: globalProfileRecord.displayName
-                });
-
-                latestRecordedX = currentX;
-                latestRecordedY = currentY;
-
-                update(ref(db, `canvasPresence/${workspaceId}/${globalUserSessionObject.uid}`), {
-                    x: latestRecordedX,
-                    y: latestRecordedY
-                });
-            };
-
-            canvasElement.onmouseup = () => {
-                localDrawingFlag = false;
-                update(ref(db, `canvasPresence/${workspaceId}/${globalUserSessionObject.uid}`), {
-                    drawingState: false
-                });
-            };
-
-            canvasElement.onmouseleave = () => {
-                if(localDrawingFlag) {
-                    localDrawingFlag = false;
-                    update(ref(db, `canvasPresence/${workspaceId}/${globalUserSessionObject.uid}`), {
-                        drawingState: false
-                    });
-                }
-            };
-        }
-
-        window.clearLocalCanvasCanvas = function() {
-            if(currentActiveWorkspaceID) {
-                remove(ref(db, `canvasHistory/${currentActiveWorkspaceID}`));
-            }
-        };
-
-        // --- MODULE B WORKERS: COLLABORATIVE REALT-TIME TEXT BOXES ---
-        function engageSharedTextBoxesSynchronizationEngine(workspaceId) {
-            const textBoxesTargetRef = ref(db, `textboxes/${workspaceId}`);
-            
-            onValue(textBoxesTargetRef, (snapshot) => {
-                const stack = snapshot.val();
-                const renderContainer = document.getElementById('ui-textboxes-stack');
-                renderContainer.innerHTML = '';
-
-                if(!stack) return;
-
-                Object.keys(stack).forEach(boxKey => {
-                    const item = stack[boxKey];
-                    const wrapper = document.createElement('div');
-                    wrapper.className = `textbox-wrapper ${item.important ? 'important' : ''}`;
+                    currentUserProfile = profile;
+                    currentUserProfile.uid = user.uid;
+                    document.getElementById('user-display-name').innerText = profile.displayName;
+                    closeAllModals();
+                    showSection('app-dashboard');
                     
-                    wrapper.innerHTML = `
-                        <div class="textbox-meta">
-                            <div>
-                                <span class="textbox-author-badge">Author: ${item.authorName}</span>
-                                ${item.important ? `<span class="textbox-badge-important"><i class="fas fa-exclamation-circle"></i> IMPORTANT</span>` : ''}
-                            </div>
-                            <div class="textbox-actions">
-                                <button class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem;" onclick="toggleTextBoxImportanceTag('${boxKey}', ${item.important})">
-                                    ${item.important ? 'Remove Important Mark' : 'Mark Important'}
-                                </button>
-                                <button class="btn btn-danger id-creator-del" style="padding:2px 6px; font-size:0.7rem;" onclick="removeTextBoxInstance('${boxKey}')">Delete Block</button>
-                            </div>
-                        </div>
-                        <div style="position:relative;">
-                            <textarea id="textarea-node-${boxKey}" rows="3" oninput="broadcastLiveTextContentDelta('${boxKey}', this.value)" onkeyup="updateLiveCursorFocusCoordinates('${boxKey}', this)" onclick="updateLiveCursorFocusCoordinates('${boxKey}', this)" placeholder="Collaborative payload writing space...">${item.content || ''}</textarea>
-                            <div id="live-text-cursor-${boxKey}" style="margin-top:4px; font-size:0.7rem; color:var(--primary); font-weight:bold;"></div>
-                        </div>
-                    `;
+                    // Boot systems listening structures framework components
+                    listenToWorkspacesDirectory();
+                    listenToFriendsNetworkList();
+                    listenForInboundToastMentions();
+                    
+                    // Parse context link injection hooks routers if parsed query structures exist inside window URL signatures
+                    handleDeepLinkInjectionsRouting();
+                }
+            });
+        }
 
-                    renderContainer.appendChild(wrapper);
+        function cacheGlobalUsersDirectory() {
+            onValue(ref(db, 'users'), (snapshot) => {
+                if(snapshot.exists()) {
+                    allUsersCachedMap = snapshot.val();
+                }
+            });
+        }
 
-                    // Dynamically render remote cursor labels positions indicator lines inside fields
-                    if (item.activeCursorUser && item.activeCursorUser !== globalUserSessionObject.uid) {
-                        const marker = document.getElementById(`live-text-cursor-${boxKey}`);
-                        if(marker) {
-                            marker.innerText = `● ${item.activeCursorName} is focused here editing...`;
-                        }
+        window.showProfileModal = () => {
+            if(!currentUserProfile) return;
+            document.getElementById('prof-display-name').value = currentUserProfile.displayName || "";
+            document.getElementById('prof-description').value = currentUserProfile.description || "";
+            document.getElementById('prof-pic-url').value = currentUserProfile.profilePic || "";
+            document.getElementById('prof-friend-code-display').value = currentUserProfile.friendCode || "000000";
+            document.getElementById('compulsory-profile-modal').classList.remove('hidden');
+            toggleSidebar();
+        };
+
+        // --- CLOUDINARY MEDIA RAW UPLOADER PIPELINE ---
+        async function uploadFileToCloudinaryEngine(fileElement, hiddenInputTarget, statusLabelTarget) {
+            const file = fileElement.files[0];
+            if(!file) return null;
+            
+            if(file.size > 70 * 1024 * 1024) {
+                showToast("File dimension constraints boundary overflow breach. Max 70MB limit.", "error");
+                fileElement.value = "";
+                return null;
+            }
+
+            statusLabelTarget.innerText = "Transmitting packet asset...";
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', CLOUDINARY_PRESET);
+
+            try {
+                const response = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+                const json = await response.json();
+                if(json.secure_url) {
+                    hiddenInputTarget.value = json.secure_url;
+                    statusLabelTarget.innerText = "Asset compilation locked successfully.";
+                    return json.secure_url;
+                }
+            } catch(e) {
+                statusLabelTarget.innerText = "Asset synchronization deployment pipeline error.";
+            }
+            return null;
+        }
+
+        window.uploadProfileImageToCloudinary = async (input) => {
+            await uploadFileToCloudinaryEngine(input, document.getElementById('prof-pic-url'), document.getElementById('prof-upload-status'));
+        };
+
+        window.uploadWorkspaceAvatarToCloudinary = async (input) => {
+            await uploadFileToCloudinaryEngine(input, document.getElementById('ws-create-avatar-url'), document.getElementById('ws-upload-status'));
+        };
+
+        window.saveUserProfileDetails = async () => {
+            const name = document.getElementById('prof-display-name').value.trim();
+            const desc = document.getElementById('prof-description').value.trim();
+            const pic = document.getElementById('prof-pic-url').value || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop";
+            const code = document.getElementById('prof-friend-code-display').value;
+
+            if(!name) return showToast("Handle tracking designation descriptor required.", "error");
+
+            await update(ref(db, `users/${auth.currentUser.uid}`), {
+                displayName: name,
+                description: desc,
+                profilePic: pic,
+                friendCode: code,
+                email: auth.currentUser.email
+            });
+            
+            showToast("Identity manifest state updated.");
+            closeAllModals();
+        };
+
+        // --- WORKSPACE CREATION AND SUBSCRIPTION ARCHITECTURE ---
+        window.showCreateWorkspaceModal = () => { toggleSidebar(); document.getElementById('create-workspace-modal').classList.remove('hidden'); };
+        window.showJoinWorkspaceModal = () => { toggleSidebar(); document.getElementById('join-workspace-modal').classList.remove('hidden'); };
+
+        window.executeCreateWorkspace = async () => {
+            const title = document.getElementById('ws-create-name').value.trim();
+            const avatar = document.getElementById('ws-create-avatar-url').value || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop";
+            const code6 = Math.floor(100000 + Math.random() * 900000).toString();
+
+            if(!title) return showToast("Title identification node key missing.", "error");
+
+            const wsRef = push(ref(db, 'workspaces'));
+            const wsId = wsRef.key;
+
+            const workspacePayload = {
+                name: title,
+                avatar: avatar,
+                code: code6,
+                creator: auth.currentUser.uid,
+                members: { [auth.currentUser.uid]: "creator" }
+            };
+
+            await set(wsRef, workspacePayload);
+            await set(ref(db, `users/${auth.currentUser.uid}/workspaces/${wsId}`), true);
+
+            showToast("Workspace initialized.");
+            closeAllModals();
+            loadActiveWorkspaceFramework(wsId);
+        };
+
+        window.executeJoinWorkspace = async () => {
+            const targetCode = document.getElementById('ws-join-code').value.trim();
+            if(!targetCode) return showToast("Provide link sequence code token.", "error");
+
+            onValue(ref(db, 'workspaces'), async (snapshot) => {
+                let verifiedWsId = null;
+                let foundData = null;
+                snapshot.forEach((child) => {
+                    if(child.val().code === targetCode) {
+                        verifiedWsId = child.key;
+                        foundData = child.val();
                     }
+                });
+
+                if(!verifiedWsId) {
+                    showToast("No active matching collaborative coordinate cluster space verified.", "error");
+                    return;
+                }
+
+                // Check capacity constraints
+                const currentMemberCount = foundData.members ? Object.keys(foundData.members).length : 0;
+                if(currentMemberCount >= 300) {
+                    showToast("Workspace operational thresholds maximum limits hit (300 user constraint).", "error");
+                    return;
+                }
+
+                if(foundData.members && foundData.members[auth.currentUser.uid]) {
+                    showToast("You are already in the workspace", "error");
+                    closeAllModals();
+                    return;
+                }
+
+                await set(ref(db, `workspaces/${verifiedWsId}/members/${auth.currentUser.uid}`), "member");
+                await set(ref(db, `users/${auth.currentUser.uid}/workspaces/${verifiedWsId}`), true);
+
+                showToast("Handshake parameters established. Joined space.");
+                closeAllModals();
+                loadActiveWorkspaceFramework(verifiedWsId);
+            }, { onlyOnce: true });
+        };
+
+        function listenToWorkspacesDirectory() {
+            onValue(ref(db, `users/${auth.currentUser.uid}/workspaces`), (snapshot) => {
+                const listContainer = document.getElementById('sidebar-workspaces-list');
+                listContainer.innerHTML = "";
+                if(!snapshot.exists()) return;
+
+                snapshot.forEach((child) => {
+                    const wsId = child.key;
+                    onValue(ref(db, `workspaces/${wsId}`), (wsSnapshot) => {
+                        const data = wsSnapshot.val();
+                        if(!data) return;
+                        
+                        const item = document.createElement('div');
+                        item.className = "list-item";
+                        item.onclick = () => { loadActiveWorkspaceFramework(wsId); toggleSidebar(); };
+                        item.innerHTML = `<img src="${data.avatar}"> <span>${data.name}</span>`;
+                        listContainer.appendChild(item);
+                    }, { onlyOnce: true });
                 });
             });
         }
 
-        window.appendNewWorkspaceTextBlock = function() {
-            if(!currentActiveWorkspaceID) return;
-            const newBoxRef = push(ref(db, `textboxes/${currentActiveWorkspaceID}`));
-            set(newBoxRef, {
-                id: newBoxRef.key,
-                content: "",
+        // --- ACTIVE WORKSPACE COMPONENT CONTROLLER CORE MAP ---
+        function loadActiveWorkspaceFramework(wsId) {
+            activeWorkspaceId = wsId;
+            document.getElementById('no-workspace-view').classList.add('hidden');
+            document.getElementById('active-workspace-view').classList.remove('hidden');
+
+            onValue(ref(db, `workspaces/${wsId}`), (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
+                activeWorkspaceData = data;
+
+                document.getElementById('ws-title-display').innerText = data.name;
+                document.getElementById('ws-code-display').innerText = data.code;
+
+                // Validate admin authorization context privileges permissions metrics mapping
+                const userRole = data.members ? data.members[auth.currentUser.uid] : 'member';
+                if(userRole === 'creator' || userRole === 'admin') {
+                    document.getElementById('ws-delete-btn').classList.remove('hidden');
+                } else {
+                    document.getElementById('ws-delete-btn').classList.add('hidden');
+                }
+
+                renderWorkspaceMembersInterfaceList(data.members);
+            });
+
+            // Initialise localized network listening layers hooks
+            listenToSharedCanvasWhiteboardStream();
+            listenToSharedTextboxesStream();
+            listenToWorkspaceLiveChatFeed();
+        }
+
+        // --- REALTIME CANVAS WHITEBOARD STREAM COMPONENT ---
+        function listenToSharedCanvasWhiteboardStream() {
+            // Recalibrate and fit bounds sizing maps variables parameters layout scale
+            canvas.width = canvas.parentElement.clientWidth;
+            
+            onValue(ref(db, `whiteboards/${activeWorkspaceId}`), (snapshot) => {
+                if(!isDrawing) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    if(snapshot.exists()) {
+                        snapshot.forEach((stroke) => {
+                            const val = stroke.val();
+                            drawVectorLineSegment(val.x0, val.y0, val.x1, val.y1, val.color, val.artist, false);
+                        });
+                    }
+                }
+            });
+
+            // Local user interactive interface click triggers tracking vectors components mapping
+            canvas.addEventListener('mousedown', startDrawingStream);
+            canvas.addEventListener('mousemove', commandDrawingStream);
+            canvas.addEventListener('mouseup', endDrawingStream);
+            canvas.addEventListener('mouseleave', endDrawingStream);
+        }
+
+        function drawVectorLineSegment(x0, y0, x1, y1, color, artistName, syncToDb = false) {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.strokeStyle = color || '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            if (artistName) {
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '10px Inter';
+                ctx.fillText(artistName, x1 + 5, y1 + 5);
+            }
+
+            if(syncToDb && activeWorkspaceId) {
+                const strokeRef = push(ref(db, `whiteboards/${activeWorkspaceId}`));
+                set(strokeRef, { x0, y0, x1, y1, color, artist: artistName });
+            }
+        }
+
+        function startDrawingStream(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            lastX = e.clientX - rect.left;
+            lastY = e.clientY - rect.top;
+        }
+
+        function commandDrawingStream(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            drawVectorLineSegment(lastX, lastY, currentX, currentY, '#2563eb', currentUserProfile.displayName, true);
+            lastX = currentX;
+            lastY = currentY;
+        }
+
+        function endDrawingStream() { isDrawing = false; }
+        window.clearLocalCanvas = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+
+        // --- SHARED COLUMNS TEXTBOXES WORKSPACE LOGIC MATRIX ---
+        window.addNewSharedTextbox = async () => {
+            if(!activeWorkspaceId) return;
+            const tRef = push(ref(db, `textboxes/${activeWorkspaceId}`));
+            await set(tRef, {
+                text: "Click to write notes...",
+                author: currentUserProfile.displayName,
+                creatorUid: auth.currentUser.uid,
                 important: false,
-                authorId: globalUserSessionObject.uid,
-                authorName: globalProfileRecord.displayName,
-                timestamp: Date.now()
+                cursorPosition: 0
             });
         };
 
-        window.broadcastLiveTextContentDelta = function(boxKey, textPayload) {
-            update(ref(db, `textboxes/${currentActiveWorkspaceID}/${boxKey}`), {
-                content: textPayload,
-                activeCursorUser: globalUserSessionObject.uid,
-                activeCursorName: globalProfileRecord.displayName
-            });
-        };
+        function listenToSharedTextboxesStream() {
+            onValue(ref(db, `textboxes/${activeWorkspaceId}`), (snapshot) => {
+                const container = document.getElementById('shared-textboxes-container');
+                container.innerHTML = "";
+                if(!snapshot.exists()) return;
 
-        window.updateLiveCursorFocusCoordinates = function(boxKey, element) {
-            // Track dynamic cursor focused positioning hooks context update loops
-            update(ref(db, `textboxes/${currentActiveWorkspaceID}/${boxKey}`), {
-                activeCursorUser: globalUserSessionObject.uid,
-                activeCursorName: globalProfileRecord.displayName
-            });
-        };
-
-        window.toggleTextBoxImportanceTag = function(boxKey, currentState) {
-            update(ref(db, `textboxes/${currentActiveWorkspaceID}/${boxKey}`), {
-                important: !currentState
-            });
-        };
-
-        window.removeTextBoxInstance = function(boxKey) {
-            // Validate administrative authorization parameters verification constraints checks
-            onValue(ref(db, `workspaces/${currentActiveWorkspaceID}`), (wsSnap) => {
-                const wsMeta = wsSnap.val();
-                onValue(ref(db, `workspaceMembers/${currentActiveWorkspaceID}/${globalUserSessionObject.uid}`), (memSnap) => {
-                    const memberRole = memSnap.val()?.role;
+                snapshot.forEach((child) => {
+                    const tId = child.key;
+                    const val = child.val();
                     
-                    if(wsMeta.creatorId === globalUserSessionObject.uid || memberRole === 'admin' || memberRole === 'creator') {
-                        remove(ref(db, `textboxes/${currentActiveWorkspaceID}/${boxKey}`));
-                        showToast("Text box element dropped successfully.");
-                    } else {
-                        showToast("Action Access Denied. Only the workspace deployment creator or elevated administrators can destroy active text blocks.", "error");
-                    }
-                }, { onlyOnce: true });
-            }, { onlyOnce: true });
-        };
-
-        // --- MODULE C WORKERS: REALTIME MEMBER DIRECTORY ROSTER AND CONTROLS ---
-        function engageMemberRosterSynchronizationInterface(workspaceId) {
-            onValue(ref(db, `workspaceMembers/${workspaceId}`), (snapshot) => {
-                const masterRoster = snapshot.val();
-                if(!masterRoster) return;
-
-                document.getElementById('ui-members-count').innerText = Object.keys(masterRoster).length;
-                evaluateMemberRosterFiltering();
-            });
-        }
-
-        window.evaluateMemberRosterFiltering = function() {
-            if(!currentActiveWorkspaceID) return;
-            const textFilter = document.getElementById('member-search-input').value.toLowerCase().trim();
-            const targetsGrid = document.getElementById('ui-members-roster-grid');
-            
-            onValue(ref(db, `workspaceMembers/${currentActiveWorkspaceID}`), (snapshot) => {
-                targetsGrid.innerHTML = '';
-                const roster = snapshot.val() || {};
-
-                // Determine local role profile privileges layer structure status properties context validation rules
-                const selfRole = roster[globalUserSessionObject.uid]?.role;
-
-                Object.keys(roster).forEach(uid => {
-                    const nodeMetadata = roster[uid];
-                    onValue(ref(db, `users/${uid}`), (userSnap) => {
-                        const profile = userSnap.val();
-                        if(!profile) return;
-
-                        if (textFilter && !profile.displayName.toLowerCase().includes(textFilter)) return;
-
-                        const row = document.createElement('div');
-                        row.className = "member-card";
-                        row.style.background = "#f8fafc";
-                        row.style.marginBottom = "4px";
-                        row.style.border = "1px solid var(--border)";
-                        row.style.borderRadius = "6px";
-
-                        let controlOptionsSegment = '';
-                        // Render administrative control capabilities conditionally matching requirements profiles
-                        if(uid !== globalUserSessionObject.uid && (selfRole === 'creator' || selfRole === 'admin')) {
-                            controlOptionsSegment = `
-                                <div style="display:flex; gap:4px;">
-                                    ${nodeMetadata.role !== 'admin' ? `<button class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; background:#dbeafe;" onclick="elevateMemberToAdminPrivileges('${uid}')">Make Admin</button>` : `<button class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; background:#fee2e2;" onclick="dismissAdminPrivileges('${uid}')">Dismiss Admin</button>`}
-                                    <button class="btn btn-danger" style="padding:2px 6px; font-size:0.7rem;" onclick="evictUserFromWorkspace('${uid}')">Remove</button>
-                                </div>
-                            `;
-                        }
-
-                        row.innerHTML = `
-                            <div class="member-info">
-                                <img src="${profile.profilePic}">
-                                <div>
-                                    <div style="font-weight:600; font-size:0.85rem;">${profile.displayName}</div>
-                                    <span class="role-badge role-${nodeMetadata.role}">${nodeMetadata.role}</span>
-                                </div>
-                            </div>
-                            ${controlOptionsSegment}
-                        `;
-                        targetsGrid.appendChild(row);
-                    }, { onlyOnce: true });
-                });
-            }, { onlyOnce: true });
-        };
-
-        window.elevateMemberToAdminPrivileges = function(targetUID) {
-            update(ref(db, `workspaceMembers/${currentActiveWorkspaceID}/${targetUID}`), { role: 'admin' }).then(() => {
-                showToast("Target credential context upgraded to elevated administrator tier status successfully.");
-                evaluateMemberRosterFiltering();
-            });
-        };
-
-        window.dismissAdminPrivileges = function(targetUID) {
-            update(ref(db, `workspaceMembers/${currentActiveWorkspaceID}/${targetUID}`), { role: 'member' }).then(() => {
-                showToast("Target credential context demoted to standard member tier status.");
-                evaluateMemberRosterFiltering();
-            });
-        };
-
-        window.evictUserFromWorkspace = function(targetUID) {
-            if(confirm("Confirm structural eviction of selected user record from this secure collaboration ecosystem space?")) {
-                remove(ref(db, `workspaceMembers/${currentActiveWorkspaceID}/${targetUID}`)).then(() => {
-                    showToast("User credential clearance record dropped from directory registry maps.");
-                    evaluateMemberRosterFiltering();
-                });
-            }
-        };
-
-        // --- MODULE D WORKERS: WORKSPACE COMMUNICATIONS SECURED CHAT ENGINE ---
-        function engageCommunicationsChannelChatStreams(workspaceId) {
-            const chatLogRef = ref(db, `workspaceChats/${workspaceId}`);
-            const viewport = document.getElementById('ws-chat-messages-scroll');
-            
-            // Monitor dynamic typing notifications loops metrics lines
-            onValue(ref(db, `workspaceTyping/${workspaceId}`), (snapshot) => {
-                const structures = snapshot.val();
-                const trackingLine = document.getElementById('ws-chat-typing-line');
-                trackingLine.innerText = '';
-                if(!structures) return;
-
-                const activeTypers = [];
-                Object.keys(structures).forEach(userKey => {
-                    if (userKey !== globalUserSessionObject.uid && structures[userKey].typing === true) {
-                        activeTypers.push(structures[userKey].name);
-                    }
-                });
-                if (activeTypers.length > 0) {
-                    trackingLine.innerText = `${activeTypers.join(', ')} ${activeTypers.length === 1 ? 'is' : 'are'} writing text elements...`;
-                }
-            });
-
-            // Stream and map dynamic message nodes models structures live
-            onValue(chatLogRef, (snapshot) => {
-                viewport.innerHTML = '';
-                const feed = snapshot.val();
-                if(!feed) return;
-
-                Object.keys(feed).forEach(msgKey => {
-                    const row = feed[msgKey];
-                    const msgRowNode = document.createElement('div');
-                    msgRowNode.className = "chat-message-row";
-
-                    // Formulate structured attachment layout variants mapping
-                    let interactiveAttachmentPayloadSegment = '';
-                    if (row.mediaUrl) {
-                        if (row.mediaType === 'image') {
-                            interactiveAttachmentPayloadSegment = `<div class="media-attach"><img src="${row.mediaUrl}"></div>`;
-                        } else if (row.mediaType === 'video') {
-                            interactiveAttachmentPayloadSegment = `<div class="media-attach"><video src="${row.mediaUrl}" controls></video></div>`;
-                        } else if (row.mediaType === 'audio') {
-                            interactiveAttachmentPayloadSegment = `<audio class="audio-player" src="${row.mediaUrl}" controls></audio>`;
-                        } else {
-                            interactiveAttachmentPayloadSegment = `<a class="file-link" href="${row.mediaUrl}" target="_blank"><i class="fas fa-file-download"></i> Shared Document (${row.mediaName || 'Download'})</a>`;
-                        }
-                    }
-
-                    // Formulate Consensus Poll structural engine layers blocks cards
-                    if(row.isPoll === true && row.pollData) {
-                        let optionsRowsContent = '';
-                        const totalVotesCount = Object.keys(row.pollData.votes || {}).length;
-
-                        row.pollData.options.forEach((optText, index) => {
-                            // Compute selection frequency metrics mapping percentages layout layers
-                            let optionVotesCount = 0;
-                            if(row.pollData.votes) {
-                                Object.keys(row.pollData.votes).forEach(vKey => {
-                                    if(row.pollData.votes[vKey] === index) optionVotesCount++;
-                                });
-                            }
-                            const barRatioPercent = totalVotesCount > 0 ? (optionVotesCount / totalVotesCount) * 100 : 0;
-
-                            optionsRowsContent += `
-                                <div class="poll-option-row">
-                                    <button class="poll-opt-btn" onclick="registerPollVoteSelection('${msgKey}', ${index})">
-                                        <div class="poll-progress" style="width: ${barRatioPercent}%;"></div>
-                                        <span style="position:relative; z-index:2;">${optText}</span>
-                                        <span style="position:relative; z-index:2; font-weight:bold; font-size:0.75rem;">${optionVotesCount} votes (${Math.round(barRatioPercent)}%)</span>
-                                    </button>
-                                </div>
-                            `;
-                        });
-
-                        interactiveAttachmentPayloadSegment += `
-                            <div class="poll-box">
-                                <div class="poll-question"><i class="fas fa-poll"></i> Consensus Request: ${row.pollData.question}</div>
-                                ${optionsRowsContent}
-                                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:right;">Total inputs mapped: ${totalVotesCount}</div>
-                            </div>
-                        `;
-                    }
-
-                    // Parse text elements looking specifically for string @mentions patterns blocks to high-light styles
-                    let stylizedBodyText = row.text || '';
-                    if (stylizedBodyText.includes('@')) {
-                        stylizedBodyText = stylizedBodyText.replace(/@\[([^\]]+)\]/g, '<span class="mention-highlight">@$1</span>');
-                    }
-
-                    msgRowNode.innerHTML = `
-                        <img class="chat-avatar" src="${row.senderPic}">
-                        <div class="chat-content">
-                            <div class="chat-msg-header">
-                                <span class="chat-username">${row.senderName}</span>
-                                <span class="chat-timestamp">${new Date(row.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                            <div class="chat-bubble">
-                                <div>${stylizedBodyText}</div>
-                                ${interactiveAttachmentPayloadSegment}
-                            </div>
+                    const box = document.createElement('div');
+                    box.className = `textbox-item ${val.important ? 'important' : ''}`;
+                    box.innerHTML = `
+                        <div class="meta">
+                            <span>Origin Node Artist: <b>${val.author}</b></span>
+                            <span id="cursor-tracker-${tId}" style="color:var(--primary); font-weight:600;"></span>
+                        </div>
+                        <textarea rows="3" oninput="updateSharedTextNode('${tId}', this)" onkeyup="updateSharedCursorNode('${tId}', this)">${val.text}</textarea>
+                        <div class="textbox-actions">
+                            <button class="btn-small ${val.important ? 'active-imp' : ''}" onclick="toggleImportantSharedTextNode('${tId}', ${val.important})">
+                                <i class="fa-solid fa-circle-exclamation"></i> Important
+                            </button>
+                            <button class="btn-small text-danger" style="color:var(--error);" onclick="deleteSharedTextNode('${tId}', '${val.creatorUid}')">Delete</button>
                         </div>
                     `;
-
-                    viewport.appendChild(msgRowNode);
+                    container.appendChild(box);
+                    
+                    if(val.cursorUser && val.cursorUser !== currentUserProfile.displayName) {
+                        const track = document.getElementById(`cursor-tracker-${tId}`);
+                        if(track) track.innerText = `✍️ ${val.cursorUser} at index ${val.cursorIndex || 0}`;
+                    }
                 });
-
-                viewport.scrollTop = viewport.scrollHeight;
             });
         }
 
-        window.monitorChatInputBoxMentionsAndTyping = function(event) {
-            const val = event.target.value;
-            const dropdown = document.getElementById('chat-mention-dropdown-menu');
-            
-            // Handle real-time user activity typing state synchronization signals mapping
-            if(val.length > 0) {
-                update(ref(db, `workspaceTyping/${currentActiveWorkspaceID}/${globalUserSessionObject.uid}`), {
-                    name: globalProfileRecord.displayName,
-                    typing: true
-                });
+        window.updateSharedTextNode = (tId, el) => {
+            update(ref(db, `textboxes/${activeWorkspaceId}/${tId}`), { text: el.value });
+        };
+
+        window.updateSharedCursorNode = (tId, el) => {
+            update(ref(db, `textboxes/${activeWorkspaceId}/${tId}`), {
+                cursorUser: currentUserProfile.displayName,
+                cursorIndex: el.selectionStart
+            });
+        };
+
+        window.toggleImportantSharedTextNode = async (tId, currentStatus) => {
+            await update(ref(db, `textboxes/${activeWorkspaceId}/${tId}`), { important: !currentStatus });
+        };
+
+        window.deleteSharedTextNode = async (tId, originalCreatorUid) => {
+            const myRole = activeWorkspaceData.members[auth.currentUser.uid];
+            if(auth.currentUser.uid === originalCreatorUid || myRole === 'creator' || myRole === 'admin') {
+                await remove(ref(db, `textboxes/${activeWorkspaceId}/${tId}`));
+                showToast("Shared field block dropped.");
             } else {
-                update(ref(db, `workspaceTyping/${currentActiveWorkspaceID}/${globalUserSessionObject.uid}`), {
-                    typing: false
-                });
-            }
-
-            // Detect matching mention prefix trigger character parameters bounds tokens
-            const lastCharIndex = val.lastIndexOf('@');
-            if (lastCharIndex !== -1 && (lastCharIndex === 0 || val.charAt(lastCharIndex - 1) === ' ')) {
-                const searchStringFragment = val.substring(lastCharIndex + 1).toLowerCase();
-                
-                onValue(ref(db, `workspaceMembers/${currentActiveWorkspaceID}`), (snapshot) => {
-                    dropdown.innerHTML = '';
-                    const roster = snapshot.val() || {};
-                    let matchedEntriesHeadcount = 0;
-
-                    Object.keys(roster).forEach(uid => {
-                        onValue(ref(db, `users/${uid}`), (uSnap) => {
-                            const uProf = uSnap.val();
-                            if (uProf && uProf.displayName.toLowerCase().includes(searchStringFragment)) {
-                                matchedEntriesHeadcount++;
-                                const item = document.createElement('div');
-                                item.className = "mention-item";
-                                item.innerHTML = `<img src="${uProf.profilePic}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;"><span>${uProf.displayName}</span>`;
-                                item.onclick = () => injectSelectedMentionIntoInputElementSlot(uProf.displayName, uProf.uid, lastCharIndex);
-                                dropdown.appendChild(item);
-                            }
-                        }, { onlyOnce: true });
-                    });
-
-                    if (matchedEntriesHeadcount > 0) dropdown.classList.remove('hidden');
-                    else dropdown.classList.add('hidden');
-                }, { onlyOnce: true });
-
-            } else {
-                dropdown.classList.add('hidden');
+                showToast("Insufficient level privileges parameter node access permissions.", "error");
             }
         };
 
-        function injectSelectedMentionIntoInputElementSlot(displayName, targetUID, startIdx) {
-            const inputField = document.getElementById('ws-chat-input');
-            const baseText = inputField.value.substring(0, startIdx);
-            // Append formatted markdown style mention tokens parameters references safely
-            inputField.value = `${baseText}@[${displayName}] `;
-            document.getElementById('chat-mention-dropdown-menu').classList.add('hidden');
-            inputField.focus();
-        }
+        // --- CHAT SYSTEM MODULE WITH SLOW-MODE TRACKING MATRIX ---
+        let chatThrottledUntil = 0;
 
-        window.handleWorkspaceChatKeypress = function(event) {
-            if(event.key === 'Enter') submitWorkspaceChatMessage();
-        };
-
-        window.submitWorkspaceChatMessage = function() {
-            const textElementInput = document.getElementById('ws-chat-input');
-            const chatStringPayload = textElementInput.value.trim();
-            if(!chatStringPayload) return;
-
-            // EVALUATE RATELIMITS SLOW MODE CONSTRAINTS THRESHOLDS CONDITIONS
-            const chatLogRef = ref(db, `workspaceChats/${currentActiveWorkspaceID}`);
+        window.handleChatInputThrottling = (el) => {
+            const text = el.value;
+            const lastChar = text[text.length - 1];
             
-            // Check daily traffic logs counters metric threshold limit constraints 500 records
-            onValue(chatLogRef, (snapshot) => {
-                const records = snapshot.val() || {};
-                const nowTimestamp = Date.now();
-                const beginningOfDayBoundaryTimestamp = new Date().setHours(0,0,0,0);
-                
-                let todayMessagesCount = 0;
-                Object.keys(records).forEach(k => {
-                    if(records[k].timestamp > beginningOfDayBoundaryTimestamp) todayMessagesCount++;
-                });
+            // Broadcast active user typing state indicator to DB
+            if(text.length > 0) {
+                set(ref(db, `workspaces/${activeWorkspaceId}/typing/${auth.currentUser.uid}`), currentUserProfile.displayName);
+            } else {
+                remove(ref(db, `workspaces/${activeWorkspaceId}/typing/${auth.currentUser.uid}`));
+            }
 
-                if (todayMessagesCount > 500) {
-                    document.getElementById('chat-slowmode-banner-node').classList.remove('hidden');
-                    document.getElementById('slowmode-status-indicator').classList.remove('hidden');
+            if(lastChar === '@') {
+                const dropdown = document.getElementById('mention-autocomplete-box');
+                dropdown.innerHTML = "";
+                dropdown.classList.remove('hidden');
+
+                Object.keys(activeWorkspaceData.members).forEach((mUid) => {
+                    const mProfile = allUsersCachedMap[mUid];
+                    if(!mProfile) return;
                     
-                    if (nowTimestamp - localLastMessageSentTimestamp < 5000) {
-                        showToast("Slow mode operational pipeline interface enforced block. Messages require a 5 second transmission delay gap interval.", "warning");
-                        return;
-                    }
-                } else {
-                    document.getElementById('chat-slowmode-banner-node').classList.add('hidden');
-                    document.getElementById('slowmode-status-indicator').classList.add('hidden');
-                }
-
-                proceedWithChatPayloadDatabaseTransmission(chatStringPayload);
-                textElementInput.value = '';
-                localLastMessageSentTimestamp = Date.now();
-
-                // Kill remote active notification typing loops tags
-                update(ref(db, `workspaceTyping/${currentActiveWorkspaceID}/${globalUserSessionObject.uid}`), {
-                    typing: false
+                    const div = document.createElement('div');
+                    div.className = "mention-item";
+                    div.onclick = () => {
+                        el.value = text + mProfile.displayName + " ";
+                        dropdown.classList.add('hidden');
+                        el.focus();
+                    };
+                    div.innerHTML = `<img src="${mProfile.profilePic}"> <span>${mProfile.displayName}</span>`;
+                    dropdown.appendChild(div);
                 });
-
-            }, { onlyOnce: true });
+            } else if(!text.includes('@')) {
+                document.getElementById('mention-autocomplete-box').classList.add('hidden');
+            }
         };
 
-        function proceedWithChatPayloadDatabaseTransmission(textPayload) {
-            const logEntryNode = push(ref(db, `workspaceChats/${currentActiveWorkspaceID}`));
-            const dataNodeInstance = {
-                id: logEntryNode.key,
-                text: textPayload,
-                senderId: globalUserSessionObject.uid,
-                senderName: globalProfileRecord.displayName,
-                senderPic: globalProfileRecord.profilePic,
+        window.sendWorkspaceChatMessage = async () => {
+            if(Date.now() < chatThrottledUntil) {
+                showToast("Chat rate configuration throttled loop layer network constraint active.", "error");
+                return;
+            }
+
+            const input = document.getElementById('chat-input-field');
+            const messageText = input.value.trim();
+            if(!messageText) return;
+
+            // Enforce live message routing operations counters checks loops trackers
+            const dailyLogsRef = ref(db, `chat_metrics/${activeWorkspaceId}/${new Date().toISOString().split('T')[0]}`);
+            let currentMessageCounterValue = 0;
+
+            onValue(dailyLogsRef, (snapshot) => {
+                currentMessageCounterValue = snapshot.val() || 0;
+            }, { onlyOnce: true });
+
+            currentMessageCounterValue++;
+            await set(dailyLogsRef, currentMessageCounterValue);
+
+            if(currentMessageCounterValue > 500) {
+                chatThrottledUntil = Date.now() + 5000;
+                showToast("Rate limit exceeded. Slow-mode active for 24 hours.", "error");
+            }
+
+            const msgRef = push(ref(db, `chats/${activeWorkspaceId}`));
+            const messagePayload = {
+                text: messageText,
+                sender: currentUserProfile.displayName,
+                avatar: currentUserProfile.profilePic,
+                senderUid: auth.currentUser.uid,
                 timestamp: Date.now()
             };
 
-            set(logEntryNode, dataNodeInstance).then(() => {
-                // Parse mention triggers tracking notifications targets profiles elements paths loops
-                const mentionMatches = textPayload.match(/@\[([^\]]+)\]/g);
-                if (mentionMatches) {
-                    onValue(ref(db, `workspaceMembers/${currentActiveWorkspaceID}`), (snapshot) => {
-                        const members = snapshot.val() || {};
-                        Object.keys(members).forEach(uid => {
-                            onValue(ref(db, `users/${uid}`), (uSnap) => {
-                                const prof = uSnap.val();
-                                if (prof && textPayload.includes(`@[${prof.displayName}]`)) {
-                                    // Ship dynamic global alert item payload straight down to recipient node profile tracks
-                                    const alertNode = push(ref(db, `notifications/${uid}`));
-                                    onValue(ref(db, `workspaces/${currentActiveWorkspaceID}`), (wsSnap) => {
-                                        set(alertNode, {
-                                            senderName: globalProfileRecord.displayName,
-                                            workspaceName: wsSnap.val().name,
-                                            timestamp: Date.now(),
-                                            read: false
-                                        });
-                                    }, { onlyOnce: true });
-                                }
-                            }, { onlyOnce: true });
-                        });
-                    }, { onlyOnce: true });
+            await set(msgRef, messagePayload);
+            
+            // Scan string vector array properties loops signatures to parse mention triggers
+            Object.keys(activeWorkspaceData.members).forEach((mUid) => {
+                const profile = allUsersCachedMap[mUid];
+                if(profile && messageText.includes(`@${profile.displayName}`)) {
+                    push(ref(db, `mentions/${mUid}`)), {
+                        by: currentUserProfile.displayName,
+                        workspaceName: activeWorkspaceData.name,
+                        timestamp: Date.now()
+                    };
+                }
+            });
+
+            input.value = "";
+            remove(ref(db, `workspaces/${activeWorkspaceId}/typing/${auth.currentUser.uid}`));
+            document.getElementById('mention-autocomplete-box').classList.add('hidden');
+        };
+
+        function listenToWorkspaceLiveChatFeed() {
+            // Listen to messages
+            onValue(ref(db, `chats/${activeWorkspaceId}`), (snapshot) => {
+                const container = document.getElementById('chat-messages-box');
+                container.innerHTML = "";
+                if(!snapshot.exists()) return;
+
+                snapshot.forEach((child) => {
+                    const data = child.val();
+                    const item = document.createElement('div');
+                    item.className = "chat-msg";
+
+                    if (data.type === 'poll') {
+                        item.innerHTML = `
+                            <div class="chat-bubble" style="width:100%; border-left:4px solid var(--warning);">
+                                <div class="sender-name">📊 POLL: ${data.question}</div>
+                                <div id="poll-nodes-${child.key}" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;"></div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                        renderPollVotingMatrixBlock(child.key, data.options);
+                    } else {
+                        item.innerHTML = `
+                            <img src="${data.avatar}">
+                            <div class="chat-bubble">
+                                <div class="sender-name">${data.sender}</div>
+                                <div>${data.text}</div>
+                                ${data.fileUrl ? (data.fileType.includes('image') ? `<img src="${data.fileUrl}" style="max-width:100%; border-radius:8px; margin-top:8px;">` : data.fileType.includes('video') ? `<video src="${data.fileUrl}" controls style="max-width:100%; border-radius:8px; margin-top:8px;"></video>` : data.fileType.includes('audio') ? `<audio src="${data.fileUrl}" controls style="margin-top:8px; width:100%;"></audio>` : `<a href="${data.fileUrl}" target="_blank" style="font-size:0.8rem; display:block; margin-top:6px; color:var(--primary);"><i class="fa-solid fa-file"></i> Open Attachment Archive</a>`) : ''}
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    }
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+
+            // Listen to typing indicator states
+            onValue(ref(db, `workspaces/${activeWorkspaceId}/typing`), (snapshot) => {
+                const indicator = document.getElementById('chat-typing-status');
+                if(snapshot.exists()) {
+                    let typers = [];
+                    snapshot.forEach(c => {
+                        if(c.key !== auth.currentUser.uid) typers.push(c.val());
+                    });
+                    indicator.innerText = typers.length > 0 ? `${typers.join(', ')} is typing...` : "";
+                } else {
+                    indicator.innerText = "";
+                }
+            });
+
+            // Listen to slow mode status banner visibility trigger flags parameters mapping
+            onValue(ref(db, `chat_metrics/${activeWorkspaceId}/${new Date().toISOString().split('T')[0]}`), (snapshot) => {
+                const count = snapshot.val() || 0;
+                const banner = document.getElementById('chat-slowmode-banner');
+                if(count > 500) {
+                    banner.classList.remove('hidden');
+                } else {
+                    banner.classList.add('hidden');
                 }
             });
         }
 
-        window.processMediaAttachmentSelection = async function(element) {
-            const attachedFile = element.files[0];
-            if(!attachedFile) return;
+        window.uploadWorkspaceChatFile = async (input) => {
+            const statusNode = document.createElement('div');
+            statusNode.style.fontSize = "0.75rem";
+            statusNode.style.color = "var(--primary)";
+            statusNode.innerText = "Processing system binary streams upload payload...";
+            input.parentElement.appendChild(statusNode);
 
-            showToast("Streaming media payload to storage framework matrix vectors...", "warning");
-            try {
-                const remoteSecureCloudAssetUrl = await transferFileAssetToCloudinary(attachedFile);
-                
-                let detectedAssetCategoryType = 'file';
-                if(attachedFile.type.startsWith('image/')) detectedAssetCategoryType = 'image';
-                else if(attachedFile.type.startsWith('video/')) detectedAssetCategoryType = 'video';
-                else if(attachedFile.type.startsWith('audio/')) detectedAssetCategoryType = 'audio';
-
-                const targetLogInstanceNode = push(ref(db, `workspaceChats/${currentActiveWorkspaceID}`));
-                set(targetLogInstanceNode, {
-                    id: targetLogInstanceNode.key,
-                    text: `Shared dynamic media attachment element: ${attachedFile.name}`,
-                    mediaUrl: remoteSecureCloudAssetUrl,
-                    mediaType: detectedAssetCategoryType,
-                    mediaName: attachedFile.name,
-                    senderId: globalUserSessionObject.uid,
-                    senderName: globalProfileRecord.displayName,
-                    senderPic: globalProfileRecord.profilePic,
+            const file = input.files[0];
+            const url = await uploadFileToCloudinaryEngine(input, { value: "" }, statusNode);
+            
+            if(url) {
+                const msgRef = push(ref(db, `chats/${activeWorkspaceId}`));
+                await set(msgRef, {
+                    text: `Shared a dynamic payload binary component asset node attachment file: ${file.name}`,
+                    fileUrl: url,
+                    fileType: file.type,
+                    sender: currentUserProfile.displayName,
+                    avatar: currentUserProfile.profilePic,
+                    senderUid: auth.currentUser.uid,
                     timestamp: Date.now()
                 });
-                showToast("Multi-media asset synced successfully onto communications logs pipelines.");
-            } catch(err) {
-                showToast(err.message, "error");
             }
+            statusNode.remove();
         };
 
-        // --- REAL-TIME CONSENSUS POLL MODULE WORKERS ---
-        window.openCreatePollModal = () => document.getElementById('modal-create-poll').classList.remove('hidden');
-        window.closeCreatePollModal = () => document.getElementById('modal-create-poll').classList.add('hidden');
+        // --- POLL INBOUND CHAT OBJECT BUILDER GENERATION LAYER ---
+        window.showCreatePollModal = () => { document.getElementById('create-poll-modal').classList.remove('hidden'); };
         
-        window.injectAnotherPollOptionRow = function() {
-            const stack = document.getElementById('poll-options-builder-stack');
-            const totalRowsCount = stack.querySelectorAll('input').length;
-            if(totalRowsCount >= 10) return showToast("Structural limit cap constraints encountered. 10 choices maximum capacity per poll frame.", "warning");
+        window.executePostChatPoll = async () => {
+            const question = document.getElementById('poll-question-input').value.trim();
+            const rawOptions = document.getElementById('poll-options-input').value.split(',');
             
-            const freshRow = document.createElement('input');
-            freshRow.type = "text";
-            freshRow.className = "poll-builder-opt";
-            freshRow.placeholder = `Option ${totalRowsCount + 1} Element`;
-            stack.appendChild(freshRow);
-        };
-
-        window.transmitNewlyConfiguredPollMessage = function() {
-            const queryText = document.getElementById('poll-query-input').value.trim();
-            const fieldNodes = document.querySelectorAll('.poll-builder-opt');
-            const choicesArray = [];
+            if(!question || rawOptions.length === 0) return showToast("Parameters configuration arrays structural limits mismatch.", "error");
             
-            fieldNodes.forEach(input => {
-                if(input.value.trim()) choicesArray.push(input.value.trim());
+            let parsedOptions = {};
+            rawOptions.slice(0, 10).forEach((opt, idx) => {
+                parsedOptions[`opt_${idx}`] = { text: opt.trim(), votes: 0 };
             });
 
-            if(!queryText || choicesArray.length < 2) return showToast("A question and at least two functional choices options are mandatory parameters setup config.", "warning");
+            const msgRef = push(ref(db, `chats/${activeWorkspaceId}`));
+            await set(msgRef, {
+                type: "poll",
+                question: question,
+                options: parsedOptions,
+                sender: currentUserProfile.displayName,
+                senderUid: auth.currentUser.uid,
+                timestamp: Date.now()
+            });
 
-            const targetedMsgNode = push(ref(db, `workspaceChats/${currentActiveWorkspaceID}`));
-            set(targetedMsgNode, {
-                id: targetedMsgNode.key,
-                text: "📊 System Intercourse Framework Poll Active",
-                isPoll: true,
-                senderId: globalUserSessionObject.uid,
-                senderName: globalProfileRecord.displayName,
-                senderPic: globalProfileRecord.profilePic,
-                timestamp: Date.now(),
-                pollData: {
-                    question: queryText,
-                    options: choicesArray,
-                    votes: {}
+            closeAllModals();
+        };
+
+        function renderPollVotingMatrixBlock(msgId, optionsObject) {
+            const targetBox = document.getElementById(`poll-nodes-${msgId}`);
+            if(!targetBox) return;
+            targetBox.innerHTML = "";
+
+            Object.keys(optionsObject).forEach((key) => {
+                const opt = optionsObject[key];
+                const btn = document.createElement('button');
+                btn.className = "btn btn-primary";
+                btn.style.background = "#f1f5f9";
+                btn.style.color = "#1e293b";
+                btn.style.justifyContent = "space-between";
+                btn.style.padding = "8px 14px";
+                btn.onclick = () => executeCastPollVoteTrack(msgId, key);
+                btn.innerHTML = `<span>${opt.text}</span> <strong>${opt.votes || 0} Votes</strong>`;
+                targetBox.appendChild(btn);
+            });
+        }
+
+        async function executeCastPollVoteTrack(msgId, optionKey) {
+            const optRef = ref(db, `chats/${activeWorkspaceId}/${msgId}/options/${optionKey}/votes`);
+            let currentVotesCount = 0;
+            onValue(optRef, (s) => { currentVotesCount = s.val() || 0; }, { onlyOnce: true });
+            await set(optRef, currentVotesCount + 1);
+            showToast("Vote ledger logged.");
+        }
+
+        // --- MEMBERS DIRECTORY AND ROLE ACCESS MUTATIONS MODULE ---
+        function renderWorkspaceMembersInterfaceList(membersObj) {
+            const container = document.getElementById('ws-members-list');
+            container.innerHTML = "";
+            if(!membersObj) return;
+
+            Object.keys(membersObj).forEach((mUid) => {
+                const role = membersObj[mUid];
+                const profile = allUsersCachedMap[mUid];
+                if(!profile) return;
+
+                const card = document.createElement('div');
+                card.className = "list-item member-directory-item-node";
+                card.setAttribute('data-name', profile.displayName.toLowerCase());
+                card.style.justifyContent = "space-between";
+
+                let actionControls = "";
+                const myRole = membersObj[auth.currentUser.uid];
+
+                if((myRole === 'creator' || myRole === 'admin') && mUid !== auth.currentUser.uid) {
+                    actionControls = `
+                        <div style="display:flex; gap:4px;">
+                            ${role !== 'admin' ? `<button class="btn-small" onclick="mutateUserRolePrivilege('${mUid}', 'admin')">Promote Admin</button>` : `<button class="btn-small" onclick="mutateUserRolePrivilege('${mUid}', 'member')">Dismiss Admin</button>`}
+                            <button class="btn-small" style="background:var(--error); color:white;" onclick="expelUserFromWorkspace('${mUid}')">Expel</button>
+                        </div>
+                    `;
                 }
-            }).then(() => {
-                closeCreatePollModal();
-                // Reset setup fields containers
-                document.getElementById('poll-query-input').value = '';
-                document.getElementById('poll-options-builder-stack').innerHTML = `
-                    <input type="text" class="poll-builder-opt" placeholder="Option 1 Element">
-                    <input type="text" class="poll-builder-opt" placeholder="Option 2 Element">
+
+                card.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <img src="${profile.profilePic}">
+                        <div>
+                            <span style="font-weight:600; display:block;">${profile.displayName}</span>
+                            <span class="status-badge status-${role}">${role}</span>
+                        </div>
+                    </div>
+                    ${actionControls}
                 `;
-            });
-        };
-
-        window.registerPollVoteSelection = function(msgKey, chosenOptionIndex) {
-            set(ref(db, `workspaceChats/${currentActiveWorkspaceID}/${msgKey}/pollData/votes/${globalUserSessionObject.uid}`), chosenOptionIndex);
-        };
-
-        // --- GLOBAL APPS PRESENCE MENTION NOTIFICATION MONITOR PACK ---
-        function listenToMentionNotifications(uid) {
-            onValue(ref(db, `notifications/${uid}`), (snapshot) => {
-                const list = snapshot.val();
-                if(!list) return;
-
-                Object.keys(list).forEach(key => {
-                    const alert = list[key];
-                    if(alert.read !== true) {
-                        showToast(`You got mentioned by ${alert.senderName} in the workspace ${alert.workspaceName}`, "warning");
-                        update(ref(db, `notifications/${uid}/${key}`), { read: true });
-                    }
-                });
+                container.appendChild(card);
             });
         }
 
-        // --- MANAGEMENT PROFILE MANAGEMENT DRAWER OVERLAYS CONTROL PANELS ---
-        window.openProfileDrawer = function() {
-            document.getElementById('profile-edit-name').value = globalProfileRecord.displayName;
-            document.getElementById('profile-edit-desc').value = globalProfileRecord.description || '';
-            document.getElementById('ui-profile-friend-code').innerText = globalProfileRecord.friendCode || '------';
-            document.getElementById('modal-profile-drawer').classList.remove('hidden');
-        };
-        window.closeProfileDrawer = () => document.getElementById('modal-profile-drawer').classList.add('hidden');
-
-        window.saveProfileDrawerModifications = async function() {
-            const editedName = document.getElementById('profile-edit-name').value.trim();
-            const editedDesc = document.getElementById('profile-edit-desc').value.trim();
-            const filePointer = document.getElementById('profile-edit-file').files[0];
-
-            if(!editedName) return showToast("Profile identity handle value missing.", "warning");
-
-            try {
-                let currentPictureAssetUrl = globalProfileRecord.profilePic;
-                if (filePointer) {
-                    currentPictureAssetUrl = await transferFileAssetToCloudinary(filePointer);
-                }
-
-                await update(ref(db, `users/${globalUserSessionObject.uid}`), {
-                    displayName: editedName,
-                    description: editedDesc,
-                    profilePic: currentPictureAssetUrl
-                });
-
-                showToast("Profile credentials synchronized globally across workspace hubs pipelines.");
-                closeProfileDrawer();
-            } catch(err) {
-                showToast(err.message, "error");
-            }
-        };
-
-        // --- BUDDY NETWORKS FRIENDS MODULE INTEGRATION ARCHETYPES ---
-        window.openAddFriendModal = () => document.getElementById('modal-add-friend').classList.remove('hidden');
-        window.closeAddFriendModal = () => document.getElementById('modal-add-friend').classList.add('hidden');
-
-        window.submitFriendConnectionRequest = function() {
-            const lookupsTokenInput = document.getElementById('friend-target-code').value.trim();
-            if(!lookupsTokenInput) return;
-
-            // Test if input matches 6 digit lookup index or raw alphanumeric uid references strings paths
-            onValue(ref(db, `friendCodes/${lookupsTokenInput.toUpperCase()}`), (snapshot) => {
-                let discoveredUID = snapshot.val();
-                if (!discoveredUID) discoveredUID = lookupsTokenInput; // Assume raw UID fallback tracking
-
-                onValue(ref(db, `users/${discoveredUID}`), (userSnap) => {
-                    if(!userSnap.exists()) {
-                        showToast("Target friend registry verification failed. Alphanumeric network address tracking mismatch.", "error");
-                        return;
-                    }
-
-                    if (discoveredUID === globalUserSessionObject.uid) {
-                        showToast("Self-referencing loop operation aborted. Cannot issue buddy requests to self accounts.", "warning");
-                        return;
-                    }
-
-                    // Push connection structures fields elements nodes lines
-                    set(ref(db, `friendRequests/${discoveredUID}/${globalUserSessionObject.uid}`), 'received');
-                    set(ref(db, `friendRequests/${globalUserSessionObject.uid}/${discoveredUID}`), 'sent');
-                    
-                    showToast("Friend Request Sent Successfully");
-                    closeAddFriendModal();
-                    document.getElementById('friend-target-code').value = '';
-                }, { onlyOnce: true });
-            }, { onlyOnce: true });
-        };
-
-        window.resolveFriendRequestInteraction = function(senderUID, isAcceptedFlag) {
-            if (isAcceptedFlag) {
-                // Update mutual connections vectors database entries references paths mappings lines safely
-                update(ref(db, `friends/${globalUserSessionObject.uid}/${senderUID}`), { status: 'friends' });
-                update(ref(db, `friends/${senderUID}/${globalUserSessionObject.uid}`), { status: 'friends' });
-                showToast("Connection confirmed. Dynamic DM interface channel configured.");
-            }
-            // Wipe standard pending requests nodes entries
-            remove(ref(db, `friendRequests/${globalUserSessionObject.uid}/${senderUID}`));
-            remove(ref(db, `friendRequests/${senderUID}/${globalUserSessionObject.uid}`));
-        };
-
-        // --- DIRECT PRIVATIZED MESSENGER INTERFACE OPERATION ENGINE ---
-        function mountDirectMessengerWorkspaceSession(buddyUID) {
-            currentActiveWorkspaceID = null;
-            currentActiveDMBuddyID = buddyUID;
-
-            document.getElementById('workspace-blank-state').classList.add('hidden');
-            document.getElementById('workspace-active-state').classList.add('hidden');
-            document.getElementById('direct-chat-state').classList.remove('hidden');
-
-            onValue(ref(db, `users/${buddyUID}`), (snapshot) => {
-                const prof = snapshot.val();
-                document.getElementById('dm-header-title').innerText = prof.displayName;
-                document.getElementById('dm-header-avatar').src = prof.profilePic;
+        window.filterMemberDirectory = () => {
+            const query = document.getElementById('member-search-input').value.toLowerCase();
+            const items = document.querySelectorAll('.member-directory-item-node');
+            items.forEach((item) => {
+                const name = item.getAttribute('data-name');
+                if(name.includes(query)) item.classList.remove('hidden');
+                else item.classList.add('hidden');
             });
+        };
 
-            // Adjust block/unblock UI visibility based on current status
-            onValue(ref(db, `blocks/${globalUserSessionObject.uid}/${buddyUID}`), (snap) => {
-                if (snap.exists() && snap.val() === true) {
-                    document.getElementById('btn-dm-block').classList.add('hidden');
-                    document.getElementById('btn-dm-unblock').classList.remove('hidden');
-                } else {
-                    document.getElementById('btn-dm-block').classList.remove('hidden');
-                    document.getElementById('btn-dm-unblock').classList.add('hidden');
-                }
-            });
+        window.mutateUserRolePrivilege = async (targetUid, nextRole) => {
+            await set(ref(db, `workspaces/${activeWorkspaceId}/members/${targetUid}`), nextRole);
+            showToast("Privileges level map state modified.");
+        };
 
-            // Stream private logs channels lines keys matches tracking
-            const sessionRouteChannelKey = globalUserSessionObject.uid < buddyUID ? `${globalUserSessionObject.uid}_${buddyUID}` : `${buddyUID}_${globalUserSessionObject.uid}`;
-            
-            onValue(ref(db, `directChats/${sessionRouteChannelKey}`), (snapshot) => {
-                const box = document.getElementById('dm-messages-container');
-                box.innerHTML = '';
-                const messages = snapshot.val();
-                if(!messages) return;
+        window.expelUserFromWorkspace = async (targetUid) => {
+            await remove(ref(db, `workspaces/${activeWorkspaceId}/members/${targetUid}`));
+            await remove(ref(db, `users/${targetUid}/workspaces/${activeWorkspaceId}`));
+            showToast("Target member dropped from security matrix clearance profiles.");
+        };
 
-                // Check blocker matrix before populating to respect hidden transmission parameters rules limits
-                onValue(ref(db, `blocks/${buddyUID}/${globalUserSessionObject.uid}`), (blockSnap) => {
-                    const isSelfBlockedByTarget = blockSnap.exists() && blockSnap.val() === true;
+        window.leaveCurrentWorkspace = async () => {
+            if(!activeWorkspaceId) return;
+            await remove(ref(db, `workspaces/${activeWorkspaceId}/members/${auth.currentUser.uid}`));
+            await remove(ref(db, `users/${auth.currentUser.uid}/workspaces/${activeWorkspaceId}`));
+            showToast("Secession framework configuration execution success.");
+            window.location.reload();
+        };
 
-                    Object.keys(messages).forEach(k => {
-                        const m = messages[k];
-                        
-                        // Hide message element tracking lines if user is currently blocked by target user silently
-                        if (isSelfBlockedByTarget && m.senderId === globalUserSessionObject.uid) {
-                            // Do not display message to simulate silent blocking mechanics context criteria rules
-                        }
+        window.deleteCurrentWorkspace = async () => {
+            if(!confirm("Destroy entire collaboration workspace node architecture ecosystem completely?")) return;
+            await remove(ref(db, `workspaces/${activeWorkspaceId}`));
+            await remove(ref(db, `users/${auth.currentUser.uid}/workspaces/${activeWorkspaceId}`));
+            showToast("Workspace architecture scrubbed.");
+            window.location.reload();
+        };
 
-                        const msgRowNode = document.createElement('div');
-                        msgRowNode.className = "chat-message-row";
-                        msgRowNode.innerHTML = `
-                            <img class="chat-avatar" src="${m.senderPic}">
-                            <div class="chat-content">
-                                <div class="chat-msg-header">
-                                    <span class="chat-username">${m.senderName}</span>
-                                    <span class="chat-timestamp">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                </div>
-                                <div class="chat-bubble">${m.text}</div>
-                            </div>
-                        `;
-                        box.appendChild(msgRowNode);
+        // --- TOAST MENTION NOTIFICATION MONITOR LISTENER ---
+        function listenForInboundToastMentions() {
+            onValue(ref(db, `mentions/${auth.currentUser.uid}`), (snapshot) => {
+                if(snapshot.exists()) {
+                    snapshot.forEach((child) => {
+                        const val = child.val();
+                        showToast(`You got mentioned by ${val.by} in the workspace ${val.workspaceName}`, "success");
+                        remove(ref(db, `mentions/${auth.currentUser.uid}/${child.key}`));
                     });
-                    box.scrollTop = box.scrollHeight;
+                }
+            });
+        }
+
+        // --- FRIENDS INTERCONNECT SYSTEM INTEGRATION ENGINE ---
+        window.showAddFriendModal = () => { toggleSidebar(); document.getElementById('add-friend-modal').classList.remove('hidden'); };
+        window.showFriendRequestsModal = () => { toggleSidebar(); document.getElementById('friend-requests-modal').classList.remove('hidden'); listenToInboundFriendRequestsList(); };
+
+        window.executeSendFriendRequest = async () => {
+            const targetInput = document.getElementById('friend-target-identifier').value.trim();
+            if(!targetInput) return showToast("Input token identifier string value parameter missing.", "error");
+
+            let targetUid = null;
+
+            // Loop and seek matching user records
+            Object.keys(allUsersCachedMap).forEach((uid) => {
+                if(uid === targetInput || allUsersCachedMap[uid].friendCode === targetInput) {
+                    targetUid = uid;
+                }
+            });
+
+            if(!targetUid) return showToast("No valid subscriber accounts found matching this tracking key signature.", "error");
+            if(targetUid === auth.currentUser.uid) return showToast("Loop reflection error: Self handshake identity bound constraint rules violation.", "error");
+
+            await set(ref(db, `friend_requests/${targetUid}/${auth.currentUser.uid}`), {
+                senderName: currentUserProfile.displayName,
+                senderPic: currentUserProfile.profilePic
+            });
+
+            showToast("Friend Request Sent Successfully");
+            closeAllModals();
+        };
+
+        function listenToInboundFriendRequestsList() {
+            onValue(ref(db, `friend_requests/${auth.currentUser.uid}`), (snapshot) => {
+                const box = document.getElementById('friend-requests-list-box');
+                box.innerHTML = "";
+                if(!snapshot.exists()) { box.innerHTML = "<p style='text-align:center; color:var(--text-muted); font-size:0.85rem;'>Clear. No connection parameters requests pending.</p>"; return; }
+
+                snapshot.forEach((child) => {
+                    const reqUid = child.key;
+                    const val = child.val();
+                    const div = document.createElement('div');
+                    div.className = "list-item";
+                    div.style.justifyContent = "space-between";
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <img src="${val.senderPic}">
+                            <span>${val.senderName}</span>
+                        </div>
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn-small" style="background:var(--success); color:white;" onclick="acceptFriendHandshake('${reqUid}')">Accept</button>
+                            <button class="btn-small" style="background:var(--error); color:white;" onclick="rejectFriendHandshake('${reqUid}')">Drop</button>
+                        </div>
+                    `;
+                    box.appendChild(div);
                 });
             });
         }
 
-        window.handleDMChatKey = (e) => { if(e.key === 'Enter') sendDirectChatMessage(); };
-
-        window.sendDirectChatMessage = function() {
-            const el = document.getElementById('dm-chat-input');
-            const str = el.value.trim();
-            if(!str || !currentActiveDMBuddyID) return;
-
-            const sessionRouteChannelKey = globalUserSessionObject.uid < currentActiveDMBuddyID ? `${globalUserSessionObject.uid}_${currentActiveDMBuddyID}` : `${currentActiveDMBuddyID}_${globalUserSessionObject.uid}`;
-            const targetLogNode = push(ref(db, `directChats/${sessionRouteChannelKey}`));
-            
-            set(targetLogNode, {
-                id: targetLogNode.key,
-                text: str,
-                senderId: globalUserSessionObject.uid,
-                senderName: globalProfileRecord.displayName,
-                senderPic: globalProfileRecord.profilePic,
-                timestamp: Date.now()
-            }).then(() => {
-                el.value = '';
-            });
+        window.acceptFriendHandshake = async (reqUid) => {
+            await set(ref(db, `friends/${auth.currentUser.uid}/${reqUid}`), true);
+            await set(ref(db, `friends/${reqUid}/${auth.currentUser.uid}`), true);
+            await remove(ref(db, `friend_requests/${auth.currentUser.uid}/${reqUid}`));
+            showToast("Handshake verification parameters successfully committed to nodes ledger.");
+            closeAllModals();
         };
 
-        window.triggerBlockAction = function(blockStateFlag) {
-            set(ref(db, `blocks/${globalUserSessionObject.uid}/${currentActiveDMBuddyID}`), blockStateFlag).then(() => {
-                showToast(blockStateFlag ? "Target profile structural transmission blocked safely." : "Target profile communication pathways restored.");
-                mountDirectMessengerWorkspaceSession(currentActiveDMBuddyID);
-            });
+        window.rejectFriendHandshake = async (reqUid) => {
+            await remove(ref(db, `friend_requests/${auth.currentUser.uid}/${reqUid}`));
+            showToast("Handshake payload request structural instance variable abandoned.");
+            closeAllModals();
         };
 
-        window.triggerUnfriendAction = function() {
-            if(confirm("Confirm mutual removal of selected friend relationship entry index parameters?")) {
-                remove(ref(db, `friends/${globalUserSessionObject.uid}/${currentActiveDMBuddyID}`));
-                remove(ref(db, `friends/${currentActiveDMBuddyID}/${globalUserSessionObject.uid}`));
-                showToast("Friendship connection entity dropped cleanly.");
-                window.location.reload();
-            }
-        };
+        function listenToFriendsNetworkList() {
+            onValue(ref(db, `friends/${auth.currentUser.uid}`), (snapshot) => {
+                const container = document.getElementById('sidebar-friends-list');
+                container.innerHTML = "";
+                if(!snapshot.exists()) return;
 
-        window.triggerReportAction = function() {
-            const reasoning = prompt("Describe user interface violation details or exploitation footprint activity data entries parameters context:");
-            if(!reasoning) return;
-            
-            const freshReportLogRef = push(ref(db, 'systemIncidentReports'));
-            set(freshReportLogRef, {
-                id: freshReportLogRef.key,
-                reporterUID: globalUserSessionObject.uid,
-                offenderUID: currentActiveDMBuddyID,
-                contextDescription: reasoning,
-                timestamp: Date.now()
-            }).then(() => {
-                showToast("Incident operational footprint log transmitted down to cybersecurity matrix supervisors elements.");
-            });
-        };
+                snapshot.forEach((child) => {
+                    const fUid = child.key;
+                    // Check local cache verification matrix records checks layer ruleset mapping logic components
+                    const fProfile = allUsersCachedMap[fUid];
+                    if(!fProfile) return;
 
-        // --- INVITATION BY LINKS AND QR CODE GENERATION INTERFACE GENERATION WORKERS ---
-        window.copyWorkspaceInviteLink = function() {
-            onValue(ref(db, `workspaces/${currentActiveWorkspaceID}`), (snapshot) => {
-                const pass = snapshot.val().passcode;
-                // Construct standard self pointing routing anchor parameters link payload structure safely
-                const structuredLinkUrl = `${window.location.origin}${window.location.pathname}?ingressPasscode=${pass}`;
-                
-                navigator.clipboard.writeText(structuredLinkUrl).then(() => {
-                    showToast("Workspace strategic registration link copied into device cache clipboard.");
+                    const item = document.createElement('div');
+                    item.className = "list-item";
+                    item.onclick = () => { launchPrivateDMInterfaceFrameWindow(fUid); };
+                    item.innerHTML = `<img src="${fProfile.profilePic}"> <span>${fProfile.displayName}</span>`;
+                    container.appendChild(item);
                 });
-            }, { onlyOnce: true });
-        };
-
-        window.revealWorkspaceQRCode = function() {
-            onValue(ref(db, `workspaces/${currentActiveWorkspaceID}`), (snapshot) => {
-                const pass = snapshot.val().passcode;
-                const url = `${window.location.origin}${window.location.pathname}?ingressPasscode=${pass}`;
-                const encodedUrl = encodeURIComponent(url);
-                const googleQRAPIEndpoint = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodedUrl}`;
-
-                const renderingZone = document.getElementById('qr-rendering-target-zone');
-                renderingZone.innerHTML = `<img src="${googleQRAPIEndpoint}" alt="Workspace Ingress QR Core">`;
-                document.getElementById('modal-qr-display').classList.remove('hidden');
-            }, { onlyOnce: true });
-        };
-
-        // Automatic Ingress Link Verification Hook Handler On App Initialized Launch Cycle Execution
-        function verifyUrlQueryIngressPasscodeParametersOnBoot() {
-            const queryData = new URLSearchParams(window.location.search);
-            const verifiedTokenCode = queryData.get('ingressPasscode');
-            if(verifiedTokenCode && verifiedTokenCode.length === 6) {
-                // Wait for auth layer stability sequence loops logic state validation anchor parameters checks
-                const verificationTaskTimer = setInterval(() => {
-                    if (globalUserSessionObject && globalProfileRecord) {
-                        clearInterval(verificationTaskTimer);
-                        showToast(`Detecting structural Link Invitation context reference. Routing validation payload against token: ${verifiedTokenCode}`, "warning");
-                        
-                        onValue(ref(db, `workspaceCodes/${verifiedTokenCode.toUpperCase()}`), (snapshot) => {
-                            const wsId = snapshot.val();
-                            if(wsId) {
-                                executeJoinWorkspaceTransactionalOperation(wsId);
-                            } else {
-                                showToast("Requested URL Ingress Token contains invalid parameters tracking metadata configurations entries.", "error");
-                            }
-                        }, { onlyOnce: true });
-                        
-                        // Clear address bar query vectors safely
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                    }
-                }, 1000);
-            }
+            });
         }
-        verifyUrlQueryIngressPasscodeParametersOnBoot();
 
-        // --- LEAVE AND DESTRUCTION PRIVILEGES OPERATIONS ROUTINES HANDLERS ---
-        window.leaveCurrentWorkspace = function() {
-            if(confirm("Are you sure you want to willfully resign membership from this workspace context session?")) {
-                remove(ref(db, `workspaceMembers/${currentActiveWorkspaceID}/${globalUserSessionObject.uid}`)).then(() => {
-                    showToast("Workspace interface connection disconnected willfully.");
-                    window.location.reload();
+        // --- DIRECT PRIVACY ENCRYPTED MESSAGING DIALOG HANDLERS MODALS ENGINE ---
+        function launchPrivateDMInterfaceFrameWindow(friendUid) {
+            activeDMFriendUid = friendUid;
+            const profile = allUsersCachedMap[friendUid];
+            if(!profile) return;
+
+            // Verify explicit interface parameters components values locks elements indicators
+            onValue(ref(db, `blocks/${friendUid}/${auth.currentUser.uid}`), (snap) => {
+                if(snap.exists()) {
+                    showToast("Channel transmission initialization fault.", "error");
+                    return;
+                }
+                
+                document.getElementById('dm-target-name-display').innerText = profile.displayName;
+                document.getElementById('dm-chat-modal').classList.remove('hidden');
+                
+                // Track dynamic structural rendering values toggle button text elements flags state indicators metrics
+                onValue(ref(db, `blocks/${auth.currentUser.uid}/${friendUid}`), (blockSnap) => {
+                    const btn = document.getElementById('dm-block-toggle-btn');
+                    btn.innerText = blockSnap.exists() ? "Unblock User" : "Block User";
                 });
-            }
+
+                listenToDMMessagesStream();
+            });
+        }
+
+        function listenToDMMessagesStream() {
+            const chatSessionRouteTokenKeyId = auth.currentUser.uid < activeDMFriendUid ? `${auth.currentUser.uid}_${activeDMFriendUid}` : `${activeDMFriendUid}_${auth.currentUser.uid}`;
+            
+            onValue(ref(db, `direct_messages/${chatSessionRouteTokenKeyId}`), (snapshot) => {
+                const container = document.getElementById('dm-messages-container');
+                container.innerHTML = "";
+                if(!snapshot.exists()) return;
+
+                snapshot.forEach((child) => {
+                    const val = child.val();
+                    const div = document.createElement('div');
+                    div.style.padding = "6px 10px";
+                    div.style.borderRadius = "6px";
+                    div.style.background = val.by === auth.currentUser.uid ? "#e0f2fe" : "#ffffff";
+                    div.style.alignSelf = val.by === auth.currentUser.uid ? "flex-end" : "flex-start";
+                    div.style.maxWidth = "80%";
+                    div.innerHTML = `<small style="font-weight:700; color:var(--text-muted); display:block;">${val.senderName}</small><span>${val.text}</span>`;
+                    container.appendChild(div);
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        window.sendDirectPrivateMessage = async () => {
+            const input = document.getElementById('dm-message-input-field');
+            const txt = input.value.trim();
+            if(!txt) return;
+
+            const chatSessionRouteTokenKeyId = auth.currentUser.uid < activeDMFriendUid ? `${auth.currentUser.uid}_${activeDMFriendUid}` : `${activeDMFriendUid}_${auth.currentUser.uid}`;
+            
+            const msgRef = push(ref(db, `direct_messages/${chatSessionRouteTokenKeyId}`));
+            await set(msgRef, {
+                text: txt,
+                by: auth.currentUser.uid,
+                senderName: currentUserProfile.displayName,
+                timestamp: Date.now()
+            });
+
+            input.value = "";
         };
 
-        window.destroyCurrentWorkspace = function() {
-            if(confirm("CRITICAL WARNING: Confirm terminal destruction parameters deployment over this entire workspace ecosystem matrix log entries? Action cannot be reverted.")) {
-                // Wipe structural maps associations entries nodes parameters bounds targets sequentially pipelines cleanly
-                remove(ref(db, `workspaceChats/${currentActiveWorkspaceID}`));
-                remove(ref(db, `workspaceMembers/${currentActiveWorkspaceID}`));
-                remove(ref(db, `textboxes/${currentActiveWorkspaceID}`));
-                remove(ref(db, `canvasHistory/${currentActiveWorkspaceID}`));
-                remove(ref(db, `canvasPresence/${currentActiveWorkspaceID}`));
-                
-                onValue(ref(db, `workspaces/${currentActiveWorkspaceID}`), (snapshot) => {
-                    if(snapshot.exists()) {
-                        const pass = snapshot.val().passcode;
-                        remove(ref(db, `workspaceCodes/${pass}`));
-                        remove(ref(db, `workspaces/${currentActiveWorkspaceID}`)).then(() => {
-                            showToast("Workspace ecosystem dropped completely from structural registry grids nodes.");
-                            window.location.reload();
-                        });
+        window.executeUnfriendActiveDM = async () => {
+            await remove(ref(db, `friends/${auth.currentUser.uid}/${activeDMFriendUid}`));
+            await remove(ref(db, `friends/${activeDMFriendUid}/${auth.currentUser.uid}`));
+            showToast("Friend ledger sync drop committed successfully.");
+            closeAllModals();
+        };
+
+        window.toggleBlockActiveDM = async () => {
+            const blockRef = ref(db, `blocks/${auth.currentUser.uid}/${activeDMFriendUid}`);
+            let isCurrentlyBlocked = false;
+            onValue(blockRef, (s) => { isCurrentlyBlocked = s.exists(); }, { onlyOnce: true });
+
+            if(isCurrentlyBlocked) {
+                await remove(blockRef);
+                showToast("Target entry unblocked.");
+            } else {
+                await set(blockRef, true);
+                showToast("Target connection vector configuration interface layer blocked completely.");
+            }
+            closeAllModals();
+        };
+
+        window.executeReportActiveDM = () => {
+            showToast("Context payload logging metrics transmitted to moderation clusters operations queues.");
+            closeAllModals();
+        };
+
+        // --- INVITE CHANNELS & DEEP LINK DEPLOYMENT PIPELINE MODULE ---
+        window.generateInviteLink = () => {
+            if(!activeWorkspaceId) return;
+            const link = `${window.location.origin}${window.location.pathname}?joinWorkspaceId=${activeWorkspaceId}`;
+            navigator.clipboard.writeText(link);
+            showToast("Ecosystem invite destination routing uniform link copy captured to local system clip buffer board.");
+        };
+
+        window.showQRModal = () => {
+            const target = document.getElementById('qrcode-rendering-target');
+            target.innerHTML = "";
+            const link = `${window.location.origin}${window.location.pathname}?joinWorkspaceId=${activeWorkspaceId}`;
+            
+            new QRCode(target, { text: link, width: 160, height: 160 });
+            document.getElementById('qr-display-modal').classList.remove('hidden');
+        };
+
+        function handleDeepLinkInjectionsRouting() {
+            const params = new URLSearchParams(window.location.search);
+            const injectedWsId = params.get('joinWorkspaceId');
+            if(injectedWsId) {
+                onValue(ref(db, `workspaces/${injectedWsId}`), async (snapshot) => {
+                    const data = snapshot.val();
+                    if(!data) return;
+
+                    // Apply join constraint validation loops variables profiles logic indicators parameters
+                    const currentCount = data.members ? Object.keys(data.members).length : 0;
+                    if(currentCount >= 300) return showToast("Ecosystem network node maximum thresholds bound constraint block hit.", "error");
+                    
+                    if(data.members && data.members[auth.currentUser.uid]) {
+                        loadActiveWorkspaceFramework(injectedWsId);
+                        return;
                     }
+
+                    await set(ref(db, `workspaces/${injectedWsId}/members/${auth.currentUser.uid}`), "member");
+                    await set(ref(db, `users/${auth.currentUser.uid}/workspaces/${injectedWsId}`), true);
+                    
+                    // Clear search url history matrix markers bounds
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    loadActiveWorkspaceFramework(injectedWsId);
                 }, { onlyOnce: true });
             }
-        };
-
+        }
     </script>
 </body>
 </html>
